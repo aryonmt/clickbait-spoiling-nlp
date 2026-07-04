@@ -48,7 +48,7 @@ class PipelineConfig:
     task1_model_name: str = "microsoft/deberta-v3-base"
     task1_max_length: int = 512
     task1_batch_size: int = 8
-    task1_lr: float = 1e-5
+    task1_lr: float = 3e-5
     task1_epochs: int = 5
     task1_weight_decay: float = 0.01
     task1_ignore_mismatched_sizes: bool = False
