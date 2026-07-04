@@ -31,3 +31,5 @@ final_complete_submission.jsonl
 !reports/**/*.png
 !reports/**/*.html
 !reports/**/*.json
+
+legacy
