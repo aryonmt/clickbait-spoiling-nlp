@@ -17,6 +17,8 @@ class PipelineConfig:
         task1_lr (float): Initial learning rate constraint for classification training.
         task1_epochs (int): Number of training epochs for Task 1 classifier.
         task1_weight_decay (float): Weight decay strength for Task 1 classification regularization.
+        task1_warmup_steps (int): Explicit LR warmup step count (replaces the deprecated warmup_ratio
+            to avoid ambiguous effective-step-count interactions under gradient accumulation / multi-GPU).
         task1_ignore_mismatched_sizes (bool): Ignore shape mismatches when loading classification weights.
         task2_model_name (str): Base Question Answering model for extractive spoiling.
         task2_max_length (int): Maximum sequence window constraint for QA models.
@@ -48,9 +50,10 @@ class PipelineConfig:
     task1_model_name: str = "microsoft/deberta-v3-base"
     task1_max_length: int = 512
     task1_batch_size: int = 8
-    task1_lr: float = 3e-5
+    task1_lr: float = 5e-5
     task1_epochs: int = 5
     task1_weight_decay: float = 0.01
+    task1_warmup_steps: int = 50
     task1_ignore_mismatched_sizes: bool = False
 
     # Task 2 - QA / Extraction

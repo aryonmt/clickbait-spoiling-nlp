@@ -219,7 +219,7 @@ class TransformerSpoilerClassifier:
             logging_steps=10,
             fp16=False,
             gradient_accumulation_steps=2,
-            warmup_ratio=0.1,
+            warmup_steps=self.config.task1_warmup_steps,
             adam_epsilon=1e-6,
             max_grad_norm=1.0,
             report_to="none",
