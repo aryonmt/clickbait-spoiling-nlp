@@ -1,5 +1,11 @@
 import argparse
 import os
+import sys
+
+# Ensure the project root (parent of this scripts/ folder) is importable,
+# so this file can be run directly (e.g. `python scripts/measure_qa_label_quality.py`)
+# as well as via `python -m scripts.measure_qa_label_quality`.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.data_loader import JSONLLoader
 from src.qa_preprocessor import find_answer_span

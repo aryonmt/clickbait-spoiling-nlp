@@ -18,6 +18,52 @@ except LookupError:
 from nltk.translate.meteor_score import meteor_score
 
 
+def compute_pair_metrics(
+    gt: List[str],
+    pred: List[str],
+    scorer: rouge_scorer.RougeScorer,
+    smoother=None,
+    include_meteor: bool = True,
+) -> dict:
+    """Computes BLEU-4, ROUGE-L, and (optionally) METEOR for a single
+
+    ground-truth/prediction pair. Centralizes logic that was previously
+    duplicated across AdvancedEvaluationSuite.evaluate_task2,
+    EvaluationReportBuilder._compute_generation_metrics (visualization_suite.py),
+    and evaluate_predictions (scripts/compare_multi_strategies.py).
+
+    Args:
+        gt: Ground truth spoiler, as a list of strings or a raw string.
+        pred: Predicted spoiler, as a list of strings or a raw string.
+        scorer: A pre-built rouge_scorer.RougeScorer(["rougeL"]) instance.
+        smoother: Optional BLEU SmoothingFunction method; defaults to method1.
+        include_meteor: Whether to also compute METEOR (skip for callers that
+          don't need it, to avoid its extra cost).
+
+    Returns:
+        dict: {"bleu": float, "rouge_l": float, "meteor": float} (meteor is
+          0.0 and omitted from cost if include_meteor is False).
+    """
+    if smoother is None:
+        smoother = SmoothingFunction().method1
+
+    gt_text = " ".join(gt).lower() if isinstance(gt, list) else str(gt).lower()
+    pred_text = " ".join(pred).lower() if isinstance(pred, list) else str(pred).lower()
+
+    rouge_l = scorer.score(gt_text, pred_text)["rougeL"].fmeasure
+
+    gt_tokens = gt_text.split()
+    pred_tokens = pred_text.split()
+
+    if not gt_tokens or not pred_tokens:
+        return {"bleu": 0.0, "rouge_l": rouge_l, "meteor": 0.0}
+
+    bleu = sentence_bleu([gt_tokens], pred_tokens, smoothing_function=smoother)
+    meteor = meteor_score([gt_tokens], pred_tokens) if include_meteor else 0.0
+
+    return {"bleu": bleu, "rouge_l": rouge_l, "meteor": meteor}
+
+
 class AdvancedEvaluationSuite:
     """Comprehensive evaluation metrics suite for both challenge tasks."""
 
@@ -54,30 +100,10 @@ class AdvancedEvaluationSuite:
         meteor_scores = []
 
         for gt, pred in zip(ground_truths, predictions):
-            gt_text = " ".join(gt).lower() if isinstance(gt, list) else str(gt).lower()
-            pred_text = (
-                " ".join(pred).lower() if isinstance(pred, list) else str(pred).lower()
-            )
-
-            # Calculate ROUGE-L
-            rouge_score = scorer.score(gt_text, pred_text)["rougeL"].fmeasure
-            rouge_l_scores.append(rouge_score)
-
-            # Calculate BLEU-4
-            gt_tokens = gt_text.split()
-            pred_tokens = pred_text.split()
-
-            if not pred_tokens or not gt_tokens:
-                bleu_scores.append(0.0)
-                meteor_scores.append(0.0)
-                continue
-
-            score = sentence_bleu([gt_tokens], pred_tokens, smoothing_function=smoother)
-            bleu_scores.append(score)
-
-            # Calculate METEOR using standard NLTK interface
-            m_score = meteor_score([gt_tokens], pred_tokens)
-            meteor_scores.append(m_score)
+            metrics = compute_pair_metrics(gt, pred, scorer, smoother)
+            bleu_scores.append(metrics["bleu"])
+            rouge_l_scores.append(metrics["rouge_l"])
+            meteor_scores.append(metrics["meteor"])
 
         print(f"Mean BLEU Score: {np.mean(bleu_scores):.4f}")
         print(f"Mean ROUGE-L Score: {np.mean(rouge_l_scores):.4f}")

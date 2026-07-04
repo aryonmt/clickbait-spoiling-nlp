@@ -61,7 +61,13 @@ def detect_enumeration_spoiler(
         return None
 
     # Match patterns like: "1. Ecuador, 2. Nicaragua, 3. Thailand"
-    pattern = r"(?:^|\s|\b)(?:\d+[\.\)])\s+([^0-9\.\)\n,;|]+)(?=\s+\d+[\.\)]|\s*,|\s*;|\s*\||\s*\n|\s*$)"
+    # Captures greedily-but-lazily up to the next numbered marker (allowing
+    # internal commas/periods, e.g. "Washington, D.C.") rather than stopping
+    # at the first comma regardless of what follows it.
+    pattern = (
+        r"(?:^|\s|\b)(?:\d+[\.\)])\s+(.+?)"
+        r"(?=\s*,\s*\d+[\.\)]|\s*;|\s*\||\s*\n|\s*$)"
+    )
     matches = re.findall(pattern, context)
 
     if len(matches) >= 2:

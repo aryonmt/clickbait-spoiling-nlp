@@ -5,11 +5,11 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
-from nltk.translate.meteor_score import meteor_score
+from nltk.translate.bleu_score import SmoothingFunction
 from rouge_score import rouge_scorer
 from sklearn.metrics import classification_report, confusion_matrix
 
+from src.evaluation import compute_pair_metrics
 from src.logging_setup import setup_logger
 from src.utils import SPOILER_LABELS, extract_primary_tag
 
@@ -55,30 +55,10 @@ class EvaluationReportBuilder:
             gt = row["spoiler_true"]
             pred = row["spoiler_pred"]
 
-            gt_text = " ".join(gt).lower() if isinstance(gt, list) else str(gt).lower()
-            pred_text = (
-                " ".join(pred).lower() if isinstance(pred, list) else str(pred).lower()
-            )
-
-            # Compute ROUGE-L
-            rouge_score = scorer.score(gt_text, pred_text)["rougeL"].fmeasure
-            rouges.append(rouge_score)
-
-            # Compute BLEU-4
-            gt_tokens = gt_text.split()
-            pred_tokens = pred_text.split()
-            if not pred_tokens or not gt_tokens:
-                bleus.append(0.0)
-                meteors.append(0.0)
-            else:
-                score = sentence_bleu(
-                    [gt_tokens], pred_tokens, smoothing_function=smoother
-                )
-                bleus.append(score)
-
-                # Compute METEOR
-                m_score = meteor_score([gt_tokens], pred_tokens)
-                meteors.append(m_score)
+            metrics = compute_pair_metrics(gt, pred, scorer, smoother)
+            bleus.append(metrics["bleu"])
+            rouges.append(metrics["rouge_l"])
+            meteors.append(metrics["meteor"])
 
         df["bleu"] = bleus
         df["rouge_l"] = rouges

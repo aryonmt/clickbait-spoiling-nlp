@@ -1,5 +1,7 @@
 from transformers import AutoTokenizer
 
+from src.utils import join_text_list
+
 
 class Seq2SeqQAPreprocessor:
     """Preprocesses clickbait spoiling datasets for Seq2Seq T5 model training."""
@@ -17,8 +19,8 @@ class Seq2SeqQAPreprocessor:
     def prepare_features(self, examples):
         inputs = []
         for q, paras in zip(examples["postText"], examples["targetParagraphs"]):
-            post_str = " ".join(q) if isinstance(q, list) else str(q)
-            context_str = " ".join(paras) if isinstance(paras, list) else str(paras)
+            post_str = join_text_list(q)
+            context_str = join_text_list(paras)
             inputs.append(f"question: {post_str} context: {context_str}")
 
         # Link target multi spoilers using a fixed delimiter " | "

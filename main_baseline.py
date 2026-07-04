@@ -20,6 +20,10 @@ def main():
 
         val_loader = JSONLLoader(val_path)
         val_df = val_loader.load_data()
+        # Defensive reset: guards against IndexError if val_df is ever produced
+        # by a filtering/sampling step upstream that leaves non-contiguous
+        # row labels (predicted_tags/predicted_spoilers are plain 0-indexed lists).
+        val_df = val_df.reset_index(drop=True)
     except FileNotFoundError as e:
         print(f"[ERROR] {e}")
         print("Ensure both train.jsonl and validation.jsonl are in the 'data/' folder.")

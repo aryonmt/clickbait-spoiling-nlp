@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 from transformers import AutoTokenizer
 
 from src.logging_setup import setup_logger
-from src.utils import extract_primary_tag
+from src.utils import extract_primary_tag, join_text_list
 
 
 def find_answer_span(context: str, answer: str) -> Optional[Tuple[int, int]]:
@@ -108,13 +108,9 @@ class QAPreprocessor:
 
     def prepare_train_features(self, examples):
         # Flatten posts and target paragraphs into single strings
-        questions = [
-            " ".join(q) if isinstance(q, list) else str(q) for q in examples["postText"]
-        ]
+        questions = [join_text_list(q) for q in examples["postText"]]
 
-        contexts = []
-        for paras in examples["targetParagraphs"]:
-            contexts.append(" ".join(paras) if isinstance(paras, list) else str(paras))
+        contexts = [join_text_list(paras) for paras in examples["targetParagraphs"]]
 
         # Tokenize with truncation and padding, keeping overflows via sliding window
         tokenized_examples = self.tokenizer(

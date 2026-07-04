@@ -41,8 +41,10 @@ class ClickbaitWeightedTrainer(Trainer):
         outputs = model(**inputs)
         logits = outputs.get("logits")
 
-        # Dynamically cast the class weights to match the logits type (Float vs Half) to prevent crashes
-        weights = self.class_weights.to(dtype=logits.dtype)
+        # Dynamically cast the class weights to match the logits type (Float vs Half)
+        # AND device (cpu/cuda) to prevent crashes if init-time device differs from
+        # the device logits end up on during the actual training step.
+        weights = self.class_weights.to(device=logits.device, dtype=logits.dtype)
 
         loss_fct = nn.CrossEntropyLoss(weight=weights)
         loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))

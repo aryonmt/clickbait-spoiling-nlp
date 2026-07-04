@@ -4,6 +4,10 @@ import nltk
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from src.logging_setup import setup_logger
+
+logger = setup_logger("retrieval_generator")
+
 # Ensure both punkt and punkt_tab are safely downloaded for newer NLTK versions
 try:
     nltk.data.find("tokenizers/punkt")
@@ -122,8 +126,13 @@ class RetrievalSpoilerGenerator:
             for i, score in enumerate(similarities):
                 sentence_metadata[i]["score"] = float(score)
 
-        except Exception:
+        except Exception as exc:
             # Safe fallback if TF-IDF vectorizer collapses (e.g. empty vocabulary)
+            logger.warning(
+                "TF-IDF similarity computation failed (%s); falling back to "
+                "zero scores for all sentences in this sample.",
+                exc,
+            )
             for item in sentence_metadata:
                 item["score"] = 0.0
 

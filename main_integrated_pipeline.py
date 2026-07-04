@@ -17,6 +17,8 @@ from src.config import PipelineConfig, override_config_from_args
 from src.data_loader import JSONLLoader
 from src.evaluation import AdvancedEvaluationSuite
 from src.logging_setup import setup_logger
+from src.multi_spoiler_extractor import generate_iterative_multi_spoiler
+from src.postprocessor import enforce_length_constraints
 from src.qa_inference import predict_best_span
 from src.retrieval_generator import RetrievalSpoilerGenerator
 from src.utils import extract_primary_tag, join_text_list
@@ -93,6 +95,12 @@ class ClickbaitIntegratedPipeline:
         Returns:
             tuple: (predicted_tags, predicted_spoilers, confidence_scores) lists.
         """
+        # Defensive reset: predicted_tags/predicted_spoilers are built as plain
+        # 0-indexed lists below, so a caller-supplied df with non-contiguous
+        # row labels (e.g. from a prior filter/sample) would otherwise cause
+        # `predicted_tags[idx]` to raise IndexError or silently misalign.
+        df = df.reset_index(drop=True)
+
         # --- Task 1: Predict Spoiler Types ---
         processed_t1 = pd.DataFrame()
         processed_t1["post"] = df["postText"].apply(join_text_list)
@@ -160,10 +168,6 @@ class ClickbaitIntegratedPipeline:
                     if not spoiler:
                         spoiler = [paragraphs[0]] if paragraphs else []
                 elif self.multi_strategy == "extractive_iterative":
-                    from src.multi_spoiler_extractor import (
-                        generate_iterative_multi_spoiler,
-                    )
-
                     spoiler = generate_iterative_multi_spoiler(
                         model=self.multi_model,
                         tokenizer=self.multi_tokenizer,
@@ -215,6 +219,10 @@ class ClickbaitIntegratedPipeline:
                 if not pred_text and len(row["targetParagraphs"]) > 0:
                     pred_text = row["targetParagraphs"][0]
 
+                # Apply golden-length postprocessing rules (phrase <=5 words /
+                # passage sentence recovery) that were previously unused.
+                pred_text = enforce_length_constraints(pred_text, pred_tag, context_str)
+
                 spoiler = [pred_text] if pred_text else []
 
             predicted_spoilers.append(spoiler)
@@ -259,6 +267,7 @@ def main():
 
     logger.info("Loading validation data...")
     val_df = JSONLLoader(args.val_path).load_data()
+    val_df = val_df.reset_index(drop=True)
 
     # Initialize configuration with dynamically defined parameters
     config = PipelineConfig()

@@ -1,12 +1,19 @@
 import argparse
 import os
+import sys
 
 import numpy as np
-from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
+from nltk.translate.bleu_score import SmoothingFunction
 from rouge_score import rouge_scorer
+
+# Ensure the project root (parent of this scripts/ folder) is importable,
+# so this file can be run directly (e.g. `python scripts/compare_multi_strategies.py`)
+# as well as via `python -m scripts.compare_multi_strategies`.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.baseline_heuristics import HeuristicSpoilerGenerator
 from src.data_loader import JSONLLoader
+from src.evaluation import compute_pair_metrics
 from src.retrieval_generator import RetrievalSpoilerGenerator
 from src.utils import extract_primary_tag
 
@@ -20,25 +27,11 @@ def evaluate_predictions(ground_truths: list, predictions: list):
     rouge_l_scores = []
 
     for gt, pred in zip(ground_truths, predictions):
-        gt_text = " ".join(gt).lower() if isinstance(gt, list) else str(gt).lower()
-        pred_text = (
-            " ".join(pred).lower() if isinstance(pred, list) else str(pred).lower()
-        )
-
-        # Calculate ROUGE-L
-        rouge_score = scorer.score(gt_text, pred_text)["rougeL"].fmeasure
-        rouge_l_scores.append(rouge_score)
-
-        # Calculate BLEU-4
-        gt_tokens = gt_text.split()
-        pred_tokens = pred_text.split()
-
-        if not pred_tokens or not gt_tokens:
-            bleu_scores.append(0.0)
-            continue
-
-        score = sentence_bleu([gt_tokens], pred_tokens, smoothing_function=smoother)
-        bleu_scores.append(score)
+        # include_meteor=False: this script only reports BLEU/ROUGE-L, matching
+        # its original scope (skips METEOR's extra cost).
+        metrics = compute_pair_metrics(gt, pred, scorer, smoother, include_meteor=False)
+        bleu_scores.append(metrics["bleu"])
+        rouge_l_scores.append(metrics["rouge_l"])
 
     return np.mean(bleu_scores), np.mean(rouge_l_scores)
 
