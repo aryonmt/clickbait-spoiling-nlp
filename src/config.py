@@ -63,19 +63,19 @@ class PipelineConfig:
     task2_weight_decay: float = 0.01
 
     # Task 2 - Phrase Extraction Config
-    task2_model_name: str = "sjrhuschlee/deberta-v3-base-squad2"
+    task2_phrase_model_name: str = "sjrhuschlee/deberta-v3-base-squad2"
     task2_phrase_max_answer_length: int = 10
     task2_phrase_output_dir: str = "results_qa_phrase"
     task2_phrase_epochs: int = 3
 
     # Task 2 - Passage Extraction Config
-    task2_model_name: str = "sjrhuschlee/deberta-v3-base-squad2"
+    task2_passage_model_name: str = "sjrhuschlee/deberta-v3-base-squad2"
     task2_passage_max_answer_length: int = 120
     task2_passage_output_dir: str = "results_qa_passage"
     task2_passage_epochs: int = 3
 
     # Multi-generator parameters (Phase 3 & 4)
-    task2_multi_strategy: str = "seq2seq"
+    task2_multi_strategy: str = "extractive_iterative"
     task2_multi_method: str = "jaccard"
     task2_multi_top_k: int = 5
     task2_multi_seq2seq_dir: str = "results_multi_seq2seq"
