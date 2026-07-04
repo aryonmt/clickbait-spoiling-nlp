@@ -43,7 +43,7 @@ def main():
     parser.add_argument(
         "--val_path",
         type=str,
-        default="data/validation.jsonl",
+        default="validation.jsonl",
         help="Path to validation data",
     )
     args = parser.parse_args()
