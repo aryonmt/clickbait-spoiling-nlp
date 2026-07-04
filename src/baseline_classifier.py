@@ -4,7 +4,7 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
-from src.utils import extract_primary_tag
+from src.utils import extract_primary_tag, join_text_list
 
 
 class BaselineSpoilerClassifier:
@@ -38,17 +38,12 @@ class BaselineSpoilerClassifier:
         """
         combined_texts = []
         for _, row in df.iterrows():
-            post = (
-                " ".join(row["postText"])
-                if isinstance(row["postText"], list)
-                else str(row["postText"])
-            )
-            paragraphs = row["targetParagraphs"]
-
+            post = join_text_list(row["postText"])
             top_paragraphs = (
-                " ".join(paragraphs[:5]) if isinstance(paragraphs, list) else ""
+                join_text_list(row["targetParagraphs"], limit=5)
+                if isinstance(row["targetParagraphs"], list)
+                else ""
             )
-
             combined_texts.append(f"{post} [SEP] {top_paragraphs}")
         return combined_texts
 

@@ -5,6 +5,8 @@ import pandas as pd
 from datasets import Dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, Trainer
 
+from src.utils import join_text_list
+
 
 class TransformerInferencePipeline:
     """Inference pipeline to load trained transformer checkpoints and predict
@@ -23,11 +25,9 @@ class TransformerInferencePipeline:
     def predict(self, df: pd.DataFrame) -> List[str]:
         """Generates scalar string predictions for the given challenge dataframe."""
         processed_df = pd.DataFrame()
-        processed_df["post"] = df["postText"].apply(
-            lambda x: " ".join(x) if isinstance(x, list) else str(x)
-        )
+        processed_df["post"] = df["postText"].apply(join_text_list)
         processed_df["article"] = df["targetParagraphs"].apply(
-            lambda x: " ".join(x[:8]) if isinstance(x, list) else ""
+            lambda x: join_text_list(x, limit=8) if isinstance(x, list) else ""
         )
 
         # Dummy label mapping to satisfy internal dataset formats during validation evaluation

@@ -19,101 +19,10 @@ from src.evaluation import AdvancedEvaluationSuite
 from src.logging_setup import setup_logger
 from src.qa_inference import predict_best_span
 from src.retrieval_generator import RetrievalSpoilerGenerator
-from src.utils import extract_primary_tag
+from src.utils import extract_primary_tag, join_text_list
 
 # Set up integrated log tracking
 logger = setup_logger("integrated_pipeline")
-
-
-def extract_qa_span(
-    tokenizer: AutoTokenizer,
-    model: AutoModelForQuestionAnswering,
-    question_list: list,
-    paragraphs_list: list,
-    max_length: int,
-    device: torch.device,
-) -> str:
-    """Extracts a precise spoiler span from target context ensuring boundary safety
-
-    and restricting selection exclusively to context token indices.
-
-    Args:
-        tokenizer: Tokenizer for formatting the QA text pairs.
-        model: Question answering model checkpoint.
-        question_list: Sequential list containing clickbait post words.
-        paragraphs_list: Sequential paragraphs from the source article.
-        max_length: Upper-bound sequence constraints.
-        device: Active computing target (cuda or cpu).
-
-    Returns:
-        str: Decoded span sequence extracted safely from the context.
-    """
-    question = (
-        " ".join(question_list)
-        if isinstance(question_list, list)
-        else str(question_list)
-    )
-    context = (
-        " ".join(paragraphs_list)
-        if isinstance(paragraphs_list, list)
-        else str(paragraphs_list)
-    )
-
-    encoding = tokenizer(
-        question,
-        context,
-        truncation="only_second",
-        max_length=max_length,
-        return_tensors="pt",
-    )
-
-    # Get sequence IDs: 0 for question, 1 for context, None for special tokens
-    sequence_ids = encoding.sequence_ids(0)
-    inputs = {k: v.to(device) for k, v in encoding.items()}
-
-    with torch.no_grad():
-        outputs = model(**inputs)
-
-    start_logits = outputs.start_logits[0].cpu().numpy()
-    end_logits = outputs.end_logits[0].cpu().numpy()
-
-    # Identify token boundaries belonging exclusively to the article context
-    context_token_indices = [idx for idx, s_id in enumerate(sequence_ids) if s_id == 1]
-    if not context_token_indices:
-        return ""
-
-    context_start = context_token_indices[0]
-    context_end = context_token_indices[-1]
-
-    # Mask logits outside of the safe context sequence limits
-    masked_start_logits = np.full_like(start_logits, -10000.0)
-    masked_end_logits = np.full_like(end_logits, -10000.0)
-
-    masked_start_logits[context_start : context_end + 1] = start_logits[
-        context_start : context_end + 1
-    ]
-    masked_end_logits[context_start : context_end + 1] = end_logits[
-        context_start : context_end + 1
-    ]
-
-    # Find the optimal valid span such that end >= start and length <= 150
-    best_score = -float("inf")
-    best_start = context_start
-    best_end = context_start
-
-    for s in range(context_start, context_end + 1):
-        for e in range(s, min(s + 150, context_end + 1)):
-            score = masked_start_logits[s] + masked_end_logits[e]
-            if score > best_score:
-                best_score = score
-                best_start = s
-                best_end = e
-
-    input_ids = encoding["input_ids"][0].cpu().numpy()
-    extracted_tokens = input_ids[best_start : best_end + 1]
-
-    decoded_span = tokenizer.decode(extracted_tokens, skip_special_tokens=True).strip()
-    return decoded_span
 
 
 class ClickbaitIntegratedPipeline:
@@ -186,11 +95,9 @@ class ClickbaitIntegratedPipeline:
         """
         # --- Task 1: Predict Spoiler Types ---
         processed_t1 = pd.DataFrame()
-        processed_t1["post"] = df["postText"].apply(
-            lambda x: " ".join(x) if isinstance(x, list) else str(x)
-        )
+        processed_t1["post"] = df["postText"].apply(join_text_list)
         processed_t1["article"] = df["targetParagraphs"].apply(
-            lambda x: " ".join(x[:8]) if isinstance(x, list) else ""
+            lambda x: join_text_list(x, limit=8) if isinstance(x, list) else ""
         )
         processed_t1["label"] = 0
 
@@ -229,17 +136,9 @@ class ClickbaitIntegratedPipeline:
             pred_tag = predicted_tags[idx]
 
             if pred_tag == "multi":
-                post_text = (
-                    " ".join(row["postText"])
-                    if isinstance(row["postText"], list)
-                    else str(row["postText"])
-                )
+                post_text = join_text_list(row["postText"])
                 paragraphs = row["targetParagraphs"]
-                context_str = (
-                    " ".join(paragraphs)
-                    if isinstance(paragraphs, list)
-                    else str(paragraphs)
-                )
+                context_str = join_text_list(paragraphs)
 
                 # Process dynamically based on multi strategy (Phase 3 & 5)
                 if self.multi_strategy == "seq2seq" and self.multi_model:
@@ -297,16 +196,8 @@ class ClickbaitIntegratedPipeline:
                     max_ans_len = self.config.task2_passage_max_answer_length
 
                 paragraphs = row["targetParagraphs"]
-                context_str = (
-                    " ".join(paragraphs)
-                    if isinstance(paragraphs, list)
-                    else str(paragraphs)
-                )
-                post_str = (
-                    " ".join(row["postText"])
-                    if isinstance(row["postText"], list)
-                    else str(row["postText"])
-                )
+                context_str = join_text_list(paragraphs)
+                post_str = join_text_list(row["postText"])
 
                 span_result = predict_best_span(
                     model=model,

@@ -34,11 +34,13 @@ class PipelineConfig:
     task2_phrase_model_name: str = "deepset/roberta-base-squad2"
     task2_phrase_max_answer_length: int = 10
     task2_phrase_output_dir: str = "results_qa_phrase"
+    task2_phrase_epochs: int = 3
 
     # Task 2 - Passage Extraction Config
     task2_passage_model_name: str = "deepset/roberta-base-squad2"
     task2_passage_max_answer_length: int = 150
     task2_passage_output_dir: str = "results_qa_passage"
+    task2_passage_epochs: int = 3
 
     # Multi-generator parameters (Phase 3 & 4)
     task2_multi_strategy: str = (

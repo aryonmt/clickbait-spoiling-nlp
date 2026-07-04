@@ -1,4 +1,5 @@
 import os
+
 import evaluate
 import numpy as np
 import pandas as pd
@@ -15,7 +16,7 @@ from transformers import (
 )
 
 from src.config import PipelineConfig
-from src.utils import extract_primary_tag
+from src.utils import extract_primary_tag, join_text_list
 
 # Enforce global reproducibility across all initializations
 set_seed(42)
@@ -69,11 +70,9 @@ class TransformerSpoilerClassifier:
         utilities.
         """
         processed_df = pd.DataFrame()
-        processed_df["post"] = df["postText"].apply(
-            lambda x: " ".join(x) if isinstance(x, list) else str(x)
-        )
+        processed_df["post"] = df["postText"].apply(join_text_list)
         processed_df["article"] = df["targetParagraphs"].apply(
-            lambda x: " ".join(x[:8]) if isinstance(x, list) else ""
+            lambda x: join_text_list(x, limit=8) if isinstance(x, list) else ""
         )
         processed_df["label"] = (
             df["tags"].apply(extract_primary_tag).map(self.label_to_id)
