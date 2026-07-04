@@ -215,7 +215,7 @@ class TransformerSpoilerClassifier:
             save_strategy="epoch",
             load_best_model_at_end=True,
             metric_for_best_model="f1",
-            save_total_limit=1,  # Prune old checkpoints automatically to save disk space
+            save_total_limit=1,
             logging_steps=10,
             fp16=False,
             gradient_accumulation_steps=2,
