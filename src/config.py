@@ -45,7 +45,7 @@ class PipelineConfig:
     log_dir: str = "logs"
 
     # Task 1 - Classification (Roberta/Deberta)
-    task1_model_name: str = "roberta-base"
+    task1_model_name: str = "microsoft/deberta-v3-base"
     task1_max_length: int = 512
     task1_batch_size: int = 8
     task1_lr: float = 2e-5
@@ -54,7 +54,7 @@ class PipelineConfig:
     task1_ignore_mismatched_sizes: bool = False
 
     # Task 2 - QA / Extraction
-    task2_model_name: str = "deepset/roberta-base-squad2"
+    task2_model_name: str = "sjrhuschlee/deberta-v3-base-squad2"
     task2_max_length: int = 512
     task2_doc_stride: int = 128
     task2_batch_size: int = 8
@@ -63,13 +63,13 @@ class PipelineConfig:
     task2_weight_decay: float = 0.01
 
     # Task 2 - Phrase Extraction Config
-    task2_phrase_model_name: str = "deepset/roberta-base-squad2"
+    task2_model_name: str = "sjrhuschlee/deberta-v3-base-squad2"
     task2_phrase_max_answer_length: int = 10
     task2_phrase_output_dir: str = "results_qa_phrase"
     task2_phrase_epochs: int = 3
 
     # Task 2 - Passage Extraction Config
-    task2_passage_model_name: str = "deepset/roberta-base-squad2"
+    task2_model_name: str = "sjrhuschlee/deberta-v3-base-squad2"
     task2_passage_max_answer_length: int = 120
     task2_passage_output_dir: str = "results_qa_passage"
     task2_passage_epochs: int = 3
