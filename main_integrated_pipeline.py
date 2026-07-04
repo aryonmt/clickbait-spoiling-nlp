@@ -1,5 +1,13 @@
+"""Unified end-to-end execution runner for the Clickbait Spoiling challenge pipeline.
+
+Orchestrates sequential Task 1 sequence classification to predict spoiler tags,
+and Task 2 span extraction/generation routed dynamically to specialized models
+depending on the predicted tags (phrase, passage, multi).
+"""
+
 import argparse
 import os
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -7,7 +15,7 @@ import torch
 from datasets import Dataset
 from transformers import (
     AutoModelForQuestionAnswering,
-    AutoModelForSeq2SeqLM,  # Promoted to module level to support robust unittest mocking
+    AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,
     AutoTokenizer,
     Trainer,
@@ -29,40 +37,73 @@ logger = setup_logger("integrated_pipeline")
 
 class ClickbaitIntegratedPipeline:
     """Orchestrates combined inference using sequential Task 1 sequence classification
-    and Task 2 token span extraction across separate Phrase/Passage/Multi models.
+
+    and Task 2 token span extraction across separate Phrase, Passage, and Multi-spoiler models.
+
+    Attributes:
+        config (PipelineConfig): Global pipeline configuration parameters.
+        device (torch.device): CUDA GPU device if available, otherwise CPU.
+        t1_tokenizer (AutoTokenizer): Tokenizer for Task 1 sequence classifier.
+        t1_model (AutoModelForSequenceClassification): Weights for sequence classification.
+        t1_id_to_label (dict): Internal mapping from integer IDs back to string spoiler classes.
+        phrase_tokenizer (AutoTokenizer): Tokenizer specifically loaded for phrase QA extraction.
+        phrase_model (AutoModelForQuestionAnswering): QA model specialized in phrase extraction.
+        passage_tokenizer (AutoTokenizer): Tokenizer specifically loaded for passage QA extraction.
+        passage_model (AutoModelForQuestionAnswering): QA model specialized in passage extraction.
+        multi_strategy (str): Method configured for resolving multi-sentence spoilers.
+        multi_tokenizer (AutoTokenizer, optional): Tokenizer loaded for generative multi spoilers.
+        multi_model (AutoModelForSeq2SeqLM, optional): Seq2Seq model loaded for T5 predictions.
     """
 
     def __init__(
         self, task1_dir: str, phrase_dir: str, passage_dir: str, config: PipelineConfig
     ):
+        """Initializes the ClickbaitIntegratedPipeline and loads all model checkpoints.
+
+        Args:
+            task1_dir (str): Directory containing trained Task 1 classifier weights.
+            phrase_dir (str): Directory containing trained Phrase QA model weights.
+            passage_dir (str): Directory containing trained Passage QA model weights.
+            config (PipelineConfig): Global pipeline configuration container.
+        """
         logger.info("Initializing Clickbait Spoiler Integrated Pipeline...")
-        self.config = config
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config: PipelineConfig = config
+        self.device: torch.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         # Load Task 1 Model
         logger.info(f"Loading Task 1 classification weights from: {task1_dir}")
-        self.t1_tokenizer = AutoTokenizer.from_pretrained(task1_dir)
-        self.t1_model = AutoModelForSequenceClassification.from_pretrained(task1_dir)
+        self.t1_tokenizer: AutoTokenizer = AutoTokenizer.from_pretrained(task1_dir)
+        self.t1_model: AutoModelForSequenceClassification = (
+            AutoModelForSequenceClassification.from_pretrained(task1_dir)
+        )
         self.t1_model.to(self.device)
         self.t1_model.eval()
-        self.t1_id_to_label = {0: "phrase", 1: "passage", 2: "multi"}
+        self.t1_id_to_label: Dict[int, str] = {0: "phrase", 1: "passage", 2: "multi"}
 
         # Load Phrase QA Model
         logger.info(f"Loading Phrase QA weights from: {phrase_dir}")
-        self.phrase_tokenizer = AutoTokenizer.from_pretrained(phrase_dir)
-        self.phrase_model = AutoModelForQuestionAnswering.from_pretrained(phrase_dir)
+        self.phrase_tokenizer: AutoTokenizer = AutoTokenizer.from_pretrained(phrase_dir)
+        self.phrase_model: AutoModelForQuestionAnswering = (
+            AutoModelForQuestionAnswering.from_pretrained(phrase_dir)
+        )
         self.phrase_model.to(self.device)
         self.phrase_model.eval()
 
         # Load Passage QA Model
         logger.info(f"Loading Passage QA weights from: {passage_dir}")
-        self.passage_tokenizer = AutoTokenizer.from_pretrained(passage_dir)
-        self.passage_model = AutoModelForQuestionAnswering.from_pretrained(passage_dir)
+        self.passage_tokenizer: AutoTokenizer = AutoTokenizer.from_pretrained(
+            passage_dir
+        )
+        self.passage_model: AutoModelForQuestionAnswering = (
+            AutoModelForQuestionAnswering.from_pretrained(passage_dir)
+        )
         self.passage_model.to(self.device)
         self.passage_model.eval()
 
-        # Configure dynamic multi spoilers strategy (Phase 3 & 4)
-        self.multi_strategy = config.task2_multi_strategy
+        # Configure dynamic multi spoilers strategy
+        self.multi_strategy: str = config.task2_multi_strategy
         self.multi_model = None
         self.multi_tokenizer = None
 
@@ -86,26 +127,42 @@ class ClickbaitIntegratedPipeline:
                 )
                 self.multi_strategy = "tfidf"
 
-    def run_inference(self, df: pd.DataFrame):
-        """Executes the complete integrated evaluation flow across the input dataframe.
+    def run_inference(
+        self, df: pd.DataFrame
+    ) -> Tuple[List[str], List[List[str]], List[float]]:
+        """Executes the complete integrated evaluation flow across the input DataFrame.
+
+        First classifies inputs to predict spoiler types, then routes examples dynamically
+        to the appropriate phrase, passage, or multi-spoiler model/algorithm.
 
         Args:
-            df (pd.DataFrame): Input dataframe containing challenge samples.
+            df (pd.DataFrame): Input DataFrame containing 'postText' and 'targetParagraphs'.
 
         Returns:
-            tuple: (predicted_tags, predicted_spoilers, confidence_scores) lists.
+            Tuple[List[str], List[List[str]], List[float]]:
+                - predicted_tags: List of spoiler type predictions.
+                - predicted_spoilers: List of extracted spoiler text segments.
+                - confidence_scores: Softmax confidence of the Task 1 predictions.
         """
         # Defensive reset: predicted_tags/predicted_spoilers are built as plain
         # 0-indexed lists below, so a caller-supplied df with non-contiguous
         # row labels (e.g. from a prior filter/sample) would otherwise cause
-        # `predicted_tags[idx]` to raise IndexError or silently misalign.
+        # indexing errors or silently misalign results.
         df = df.reset_index(drop=True)
 
         # --- Task 1: Predict Spoiler Types ---
         processed_t1 = pd.DataFrame()
-        processed_t1["post"] = df["postText"].apply(join_text_list)
-        processed_t1["article"] = df["targetParagraphs"].apply(
-            lambda x: join_text_list(x, limit=8) if isinstance(x, list) else ""
+        processed_t1["post"] = (
+            df["postText"].apply(join_text_list) if "postText" in df.columns else ""
+        )
+        processed_t1["article"] = (
+            df["targetParagraphs"].apply(
+                lambda x: (
+                    join_text_list(x, limit=8) if isinstance(x, (list, str)) else ""
+                )
+            )
+            if "targetParagraphs" in df.columns
+            else ""
         )
         processed_t1["label"] = 0
 
@@ -138,10 +195,12 @@ class ClickbaitIntegratedPipeline:
 
         # --- Task 2: Robust Spoiler Span Extraction ---
         logger.info("Running Task 2 Model Inference with Safe Boundary Mapping...")
-        predicted_spoilers = []
+        predicted_spoilers: List[List[str]] = []
 
-        for idx, row in df.iterrows():
-            pred_tag = predicted_tags[idx]
+        # Use enumerate to guarantee safe 0-based sequential lookup in predicted_tags list,
+        # protecting against non-sequential or custom indexes in the input DataFrame.
+        for i, (_, row) in enumerate(df.iterrows()):
+            pred_tag = predicted_tags[i]
 
             if pred_tag == "multi":
                 post_text = join_text_list(row["postText"])
@@ -230,7 +289,11 @@ class ClickbaitIntegratedPipeline:
         return predicted_tags, predicted_spoilers, confidence_scores
 
 
-def main():
+def main() -> None:
+    """Parses execution arguments, loads validation data, runs inference,
+
+    evaluates tasks, and saves predictions to a standardized JSONL file.
+    """
     parser = argparse.ArgumentParser(
         description="Run integrated clickbait spoiler prediction pipeline"
     )

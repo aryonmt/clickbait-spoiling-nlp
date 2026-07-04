@@ -1,11 +1,22 @@
+"""Execution runner for training the Task 1 sequence classification transformer model.
+
+Loads training and validation splits and launches the training pipeline utilizing
+the modular TransformerSpoilerClassifier with inverse-frequency weighted cross-entropy.
+"""
+
 import argparse
+import sys
 
 from src.config import PipelineConfig
 from src.data_loader import JSONLLoader
 from src.transformer_classifier import TransformerSpoilerClassifier
 
 
-def main():
+def main() -> None:
+    """Parses command-line parameters, overrides training configurations, and runs
+
+    the sequence classification training pipeline.
+    """
     parser = argparse.ArgumentParser(
         description="Encapsulated Training Framework for Clickbait Challenge Task 1"
     )
@@ -25,7 +36,7 @@ def main():
     parser.add_argument("--epochs", type=int, help="Number of training epochs")
     args = parser.parse_args()
 
-    # Load and map command-line arguments to global PipelineConfig
+    # Load and map command-line arguments to global PipelineConfig dynamically
     config = PipelineConfig()
     if args.model_name:
         config.task1_model_name = args.model_name
@@ -43,10 +54,13 @@ def main():
         val_loader = JSONLLoader(file_path=args.val_path)
         val_df = val_loader.load_data()
     except FileNotFoundError as e:
-        print(f"[ERROR] Ingestion crashed: {e}")
-        return
+        print(f"[ERROR] Dataset ingestion crashed: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[ERROR] Unexpected training ingestion failure: {e}")
+        sys.exit(1)
 
-    # Initialize classifier utilizing the structured configuration
+    # Initialize classifier utilizing the structured configuration and train
     classifier = TransformerSpoilerClassifier(config=config)
     classifier.train_pipeline(train_df=train_df, val_df=val_df)
 

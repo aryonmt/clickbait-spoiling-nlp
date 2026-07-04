@@ -70,14 +70,14 @@ class PipelineConfig:
 
     # Task 2 - Passage Extraction Config
     task2_passage_model_name: str = "deepset/roberta-base-squad2"
-    task2_passage_max_answer_length: int = 150
+    task2_passage_max_answer_length: int = 120
     task2_passage_output_dir: str = "results_qa_passage"
     task2_passage_epochs: int = 3
 
     # Multi-generator parameters (Phase 3 & 4)
     task2_multi_strategy: str = "seq2seq"
     task2_multi_method: str = "jaccard"
-    task2_multi_top_k: int = 3
+    task2_multi_top_k: int = 5
     task2_multi_seq2seq_dir: str = "results_multi_seq2seq"
 
     def __post_init__(self) -> None:

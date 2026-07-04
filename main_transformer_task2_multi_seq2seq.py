@@ -1,5 +1,13 @@
+"""Execution runner for fine-tuning generative Seq2Seq models (e.g. T5) on multi-type spoilers.
+
+Loads the training and validation datasets, filters for multi-spoilers exclusively,
+preprocesses textual inputs, and launches sequence-to-sequence training.
+"""
+
 import argparse
+import glob
 import os
+import shutil
 
 from datasets import Dataset
 from transformers import (
@@ -15,7 +23,11 @@ from src.data_loader import JSONLLoader
 from src.seq2seq_qa_preprocessor import Seq2SeqQAPreprocessor
 
 
-def main():
+def main() -> None:
+    """Parses training configuration args, preprocesses T5 targets, and runs the unified
+
+    generative Seq2Seq training sequence for multi-spoilers.
+    """
     parser = argparse.ArgumentParser(
         description="Fine-tune a Flan-T5 model for Generative Multi Spoiler Generation"
     )
@@ -41,7 +53,9 @@ def main():
     config = PipelineConfig()
     set_seed(config.seed)
 
-    # Load and filter dataset for MULTI only
+    # Load and filter dataset for MULTI only.
+    # Note: filter_by_tag automatically calls reset_index(drop=True) by default,
+    # ensuring standard contiguous indices when wrapping inside HF Datasets.
     print("Loading and filtering multi-type datasets...")
     train_loader = JSONLLoader(args.train_path).filter_by_tag("multi")
     val_loader = JSONLLoader(args.val_path).filter_by_tag("multi")
@@ -98,10 +112,7 @@ def main():
     print(f"Saving optimized Seq2Seq model weights to {args.output_dir}...")
     trainer.save_model(args.output_dir)
 
-    # Clean intermediate checkpoint folders
-    import glob
-    import shutil
-
+    # Clean intermediate checkpoint folders safely ignoring file-locking errors
     for folder in glob.glob(os.path.join(args.output_dir, "checkpoint-*")):
         shutil.rmtree(folder, ignore_errors=True)
         print(f"[CLEANUP] Pruned intermediate checkpoint: {folder}")

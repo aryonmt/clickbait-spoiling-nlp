@@ -37,7 +37,7 @@ class HeuristicSpoilerGenerator:
         if tag == "phrase":
             # Target phrase length: ~3-5 words from the very beginning of the article
             words = first_para.split()
-            return [" ".join(words[:5])]
+            return [" ".join(words[:6])]
 
         elif tag == "passage":
             # Target passage length: return the complete first paragraph

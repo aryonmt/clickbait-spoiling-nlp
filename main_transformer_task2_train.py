@@ -1,20 +1,15 @@
 """Unified training entry point for Task 2 (Spoiler Text Extraction).
 
-Replaces the three near-duplicate scripts:
-    - main_transformer_task2_phrase.py
-    - main_transformer_task2_passage.py
-    - main_transformer_task2_qa.py
-
-Select which variant to train with --spoiler_type {phrase,passage,qa}.
-"phrase" and "passage" filter the dataset by tag before training; "qa"
-trains on the full (unfiltered) dataset, matching the previous scripts'
-behavior exactly.
+Replaces near-duplicate scripts for phrase, passage, and QA training variants.
+Trains specialized extractive transformer models and preserves disk space by pruning
+intermediate checkpoints.
 """
 
 import argparse
 import glob
 import os
 import shutil
+from typing import Any, Dict
 
 import numpy as np
 from datasets import Dataset
@@ -33,7 +28,7 @@ from src.qa_preprocessor import QAPreprocessor
 # Per-spoiler_type mapping of which config attributes to read/override.
 # This is the only place that needs to know about the differences between
 # the phrase / passage / qa variants.
-VARIANT_CONFIG = {
+VARIANT_CONFIG: Dict[str, Dict[str, Any]] = {
     "phrase": {
         "tag_filter": "phrase",
         "model_name_attr": "task2_phrase_model_name",
@@ -58,16 +53,20 @@ VARIANT_CONFIG = {
 }
 
 
-def compute_qa_metrics(eval_pred):
-    """Computes exact match and token-level F1 on token positions directly,
+def compute_qa_metrics(eval_pred: Any) -> Dict[str, float]:
+    """Computes exact match and token-level F1 on token positions directly.
 
-    including an answerable-only F1 metrics breakdown to prevent dynamic watering down.
+    Includes an answerable-only F1 metrics breakdown to prevent dynamic watering down.
 
     Args:
         eval_pred: Evaluated predictions containing (logits, labels).
 
     Returns:
-        dict: Calculated overall and answerable-only metrics.
+        Dict[str, float]: Calculated overall and answerable-only metrics:
+            - 'exact_match': Rate of exact matching start and end token indices.
+            - 'token_f1': Average token-level F1 score.
+            - 'answerable_exact_match': Exact match score specifically for answerable windows.
+            - 'answerable_token_f1': Token F1 score specifically for answerable windows.
     """
     start_logits, end_logits = eval_pred.predictions
     start_positions, end_positions = eval_pred.label_ids
@@ -112,7 +111,7 @@ def compute_qa_metrics(eval_pred):
 
         f1_scores.append(f1)
 
-        # Track metrics strictly for answerable contexts (Phase 2.1)
+        # Track metrics strictly for answerable contexts
         if s_true != 0:
             answerable_f1_scores.append(f1)
             if is_em:
@@ -133,7 +132,11 @@ def compute_qa_metrics(eval_pred):
     }
 
 
-def main():
+def main() -> None:
+    """Parses training configuration args, tokenizes text spans, and runs the unified
+
+    extractive QA fine-tuning process.
+    """
     parser = argparse.ArgumentParser(
         description="Fine-tune a Transformer model for Task 2 (Spoiler Text Extraction)"
     )
@@ -185,6 +188,11 @@ def main():
         print("Loading datasets for QA Extraction...")
         train_df = JSONLLoader(args.train_path).load_data()
         val_df = JSONLLoader(args.val_path).load_data()
+
+    # Explicitly reset row index labels to contiguous 0-based range to ensure
+    # standard PyArrow schemas when wrapping inside Hugging Face Datasets.
+    train_df = train_df.reset_index(drop=True)
+    val_df = val_df.reset_index(drop=True)
 
     train_dataset = Dataset.from_pandas(train_df)
     val_dataset = Dataset.from_pandas(val_df)
@@ -250,7 +258,7 @@ def main():
     print(f"Saving optimized {args.spoiler_type} QA model weights to {output_dir}...")
     trainer.save_model(output_dir)
 
-    # Clean intermediate checkpoint folders
+    # Clean intermediate checkpoint folders safely ignoring file-locking errors
     for folder in glob.glob(os.path.join(output_dir, "checkpoint-*")):
         shutil.rmtree(folder, ignore_errors=True)
         print(f"[CLEANUP] Pruned intermediate checkpoint: {folder}")

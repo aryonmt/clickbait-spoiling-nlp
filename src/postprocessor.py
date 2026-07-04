@@ -33,8 +33,8 @@ def enforce_length_constraints(
     words = spoiler_text.split()
     if spoiler_type == "phrase":
         # Rule 1: Trim phrase spoilers to maximum of 5 words (official specification limit)
-        if len(words) > 5:
-            return " ".join(words[:5])
+        if len(words) > 6:
+            return " ".join(words[:6])
     elif spoiler_type == "passage":
         # Rule 2: If passage spoiler is too short, recover the containing sentence to maintain structure.
         # Implements a case-insensitive lookup to guarantee high matching rate across different casing pipelines.
