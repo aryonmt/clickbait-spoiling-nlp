@@ -193,10 +193,17 @@ class QAPreprocessor:
                 while token_end_index >= 0 and sequence_ids[token_end_index] != 1:
                     token_end_index -= 1
 
-                # Detect if the answer window falls completely inside this token slice
-                if not (
-                    offsets[token_start_index][0] <= start_char
-                    and offsets[token_end_index][1] >= end_char
+                # Detect if the answer window falls completely inside this token slice.
+                # Defensive check: if no context tokens exist in sequence_ids, token_start_index
+                # will equal len(offsets) and token_end_index will equal -1, which would
+                # raise an IndexError when accessing offsets.
+                if (
+                    token_start_index >= len(offsets)
+                    or token_end_index < 0
+                    or not (
+                        offsets[token_start_index][0] <= start_char
+                        and offsets[token_end_index][1] >= end_char
+                    )
                 ):
                     tokenized_examples["start_positions"].append(cls_index)
                     tokenized_examples["end_positions"].append(cls_index)

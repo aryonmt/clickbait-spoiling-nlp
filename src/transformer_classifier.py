@@ -100,8 +100,15 @@ class TransformerSpoilerClassifier:
         class_counts = np.bincount(labels, minlength=3)
         total_samples = len(labels)
 
-        weights = total_samples / (3.0 * class_counts)
-        return weights.tolist()
+        # Defensive fallback to avoid ZeroDivisionError if a class has 0 samples
+        # (e.g., under small debug, filtered, or custom data validation sets)
+        weights = []
+        for count in class_counts:
+            if count > 0:
+                weights.append(total_samples / (3.0 * count))
+            else:
+                weights.append(1.0)  # Fallback default weight for empty classes
+        return weights
 
     def train_pipeline(self, train_df: pd.DataFrame, val_df: pd.DataFrame):
         """Executes full tokenization, model initialization, and full-precision
