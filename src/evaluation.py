@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List, Optional
 
 import nltk
 import numpy as np
@@ -6,7 +6,7 @@ from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
 from rouge_score import rouge_scorer
 from sklearn.metrics import classification_report, confusion_matrix
 
-from src.utils import SPOILER_LABELS
+from src.utils import SPOILER_LABELS, join_text_list
 
 # Silent download of METEOR dependencies to ensure smooth execution
 try:
@@ -22,34 +22,30 @@ def compute_pair_metrics(
     gt: List[str],
     pred: List[str],
     scorer: rouge_scorer.RougeScorer,
-    smoother=None,
+    smoother: Optional[SmoothingFunction] = None,
     include_meteor: bool = True,
-) -> dict:
-    """Computes BLEU-4, ROUGE-L, and (optionally) METEOR for a single
+) -> Dict[str, float]:
+    """Computes BLEU-4, ROUGE-L, and (optionally) METEOR for a single ground-truth/prediction pair.
 
-    ground-truth/prediction pair. Centralizes logic that was previously
-    duplicated across AdvancedEvaluationSuite.evaluate_task2,
-    EvaluationReportBuilder._compute_generation_metrics (visualization_suite.py),
-    and evaluate_predictions (scripts/compare_multi_strategies.py).
+    This centralizes evaluation logic to avoid redundant calculations across the codebase.
 
     Args:
-        gt: Ground truth spoiler, as a list of strings or a raw string.
-        pred: Predicted spoiler, as a list of strings or a raw string.
-        scorer: A pre-built rouge_scorer.RougeScorer(["rougeL"]) instance.
-        smoother: Optional BLEU SmoothingFunction method; defaults to method1.
-        include_meteor: Whether to also compute METEOR (skip for callers that
-          don't need it, to avoid its extra cost).
+        gt (List[str]): Ground truth spoiler segment(s).
+        pred (List[str]): Predicted spoiler segment(s).
+        scorer (rouge_scorer.RougeScorer): Pre-instantiated ROUGE scorer.
+        smoother (SmoothingFunction, optional): BLEU smoothing strategy. Defaults to SmoothingFunction().method1.
+        include_meteor (bool): Whether to calculate METEOR score. Defaults to True.
 
     Returns:
-        dict: {"bleu": float, "rouge_l": float, "meteor": float} (meteor is
-          0.0 and omitted from cost if include_meteor is False).
+        Dict[str, float]: Calculated metrics containing 'bleu', 'rouge_l', and 'meteor'.
     """
     if smoother is None:
         smoother = SmoothingFunction().method1
 
-    gt_text = " ".join(gt).lower() if isinstance(gt, list) else str(gt).lower()
-    pred_text = " ".join(pred).lower() if isinstance(pred, list) else str(pred).lower()
+    gt_text = join_text_list(gt).lower()
+    pred_text = join_text_list(pred).lower()
 
+    # Calculate ROUGE-L
     rouge_l = scorer.score(gt_text, pred_text)["rougeL"].fmeasure
 
     gt_tokens = gt_text.split()
@@ -58,25 +54,35 @@ def compute_pair_metrics(
     if not gt_tokens or not pred_tokens:
         return {"bleu": 0.0, "rouge_l": rouge_l, "meteor": 0.0}
 
+    # Calculate BLEU-4
     bleu = sentence_bleu([gt_tokens], pred_tokens, smoothing_function=smoother)
+
+    # Calculate METEOR
     meteor = meteor_score([gt_tokens], pred_tokens) if include_meteor else 0.0
 
     return {"bleu": bleu, "rouge_l": rouge_l, "meteor": meteor}
 
 
 class AdvancedEvaluationSuite:
-    """Comprehensive evaluation metrics suite for both challenge tasks."""
+    """Comprehensive evaluation metrics suite for both task classification
+
+    and text generation evaluation.
+    """
 
     @staticmethod
     def evaluate_task1(y_true: List[str], y_pred: List[str]) -> None:
-        """Computes and displays classification metrics for Task 1.
+        """Computes and prints detailed classification metrics for Task 1 (Spoiler Type).
 
         Args:
-            y_true (List[str]): Ground truth labels.
-            y_pred (List[str]): Model predictions.
+            y_true (List[str]): True categorical labels.
+            y_pred (List[str]): Predicted categorical labels.
         """
         print("\n=== TASK 1: CLASSIFICATION PERFORMANCE ===")
-        print(classification_report(y_true, y_pred, labels=SPOILER_LABELS, digits=4))
+        print(
+            classification_report(
+                y_true, y_pred, labels=SPOILER_LABELS, digits=4, zero_division=0.0
+            )
+        )
         print("Confusion Matrix:")
         print(confusion_matrix(y_true, y_pred, labels=SPOILER_LABELS))
 
@@ -84,20 +90,29 @@ class AdvancedEvaluationSuite:
     def evaluate_task2(
         ground_truths: List[List[str]], predictions: List[List[str]]
     ) -> None:
-        """Computes BLEU, ROUGE-L, and METEOR scores for the generated spoilers.
+        """Computes and displays aggregated BLEU-4, ROUGE-L, METEOR, and optional BERTScore.
 
         Args:
-            ground_truths (List[List[str]]): Target human spoilers.
-            predictions (List[List[str]]): Generated baseline spoilers.
+            ground_truths (List[List[str]]): List of target spoiler references.
+            predictions (List[List[str]]): List of predicted spoiler candidates.
+
+        Raises:
+            ValueError: If the lengths of ground_truths and predictions mismatch.
         """
+        if len(ground_truths) != len(predictions):
+            raise ValueError(
+                f"[ERROR] Mismatched sequence counts: ground_truths has {len(ground_truths)} items, "
+                f"while predictions has {len(predictions)} items."
+            )
+
         print("\n=== TASK 2: TEXT GENERATION PERFORMANCE ===")
 
         scorer = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
         smoother = SmoothingFunction().method1
 
-        bleu_scores = []
-        rouge_l_scores = []
-        meteor_scores = []
+        bleu_scores: List[float] = []
+        rouge_l_scores: List[float] = []
+        meteor_scores: List[float] = []
 
         for gt, pred in zip(ground_truths, predictions):
             metrics = compute_pair_metrics(gt, pred, scorer, smoother)
@@ -113,14 +128,8 @@ class AdvancedEvaluationSuite:
         try:
             import bert_score
 
-            references_str = [
-                " ".join(gt) if isinstance(gt, list) else str(gt)
-                for gt in ground_truths
-            ]
-            candidates_str = [
-                " ".join(pred) if isinstance(pred, list) else str(pred)
-                for pred in predictions
-            ]
+            references_str = [join_text_list(gt) for gt in ground_truths]
+            candidates_str = [join_text_list(pred) for pred in predictions]
 
             if references_str and candidates_str:
                 _, _, F1 = bert_score.score(

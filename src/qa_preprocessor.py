@@ -1,5 +1,6 @@
+import json
 import os
-from typing import Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from transformers import AutoTokenizer
 
@@ -9,6 +10,7 @@ from src.utils import extract_primary_tag, join_text_list
 
 def find_answer_span(context: str, answer: str) -> Optional[Tuple[int, int]]:
     """Locates the start and end character indices of the answer inside context
+
     using strict normalization (whitespace and quotation alignment) while
     preserving raw character offsets.
 
@@ -17,7 +19,8 @@ def find_answer_span(context: str, answer: str) -> Optional[Tuple[int, int]]:
         answer (str): The raw answer text to find.
 
     Returns:
-        Optional[Tuple[int, int]]: (start_char, end_char) if matched, else None.
+        Optional[Tuple[int, int]]: A tuple containing (start_char, end_char)
+            if matched successfully, else None.
     """
     if not answer or not context:
         return None
@@ -45,8 +48,8 @@ def find_answer_span(context: str, answer: str) -> Optional[Tuple[int, int]]:
         return c.lower()
 
     # Build index mapping from normalized representation to original raw string
-    norm_context = []
-    orig_indices = []
+    norm_context: List[str] = []
+    orig_indices: List[int] = []
     prev_was_space = False
 
     for idx, char in enumerate(context):
@@ -64,7 +67,7 @@ def find_answer_span(context: str, answer: str) -> Optional[Tuple[int, int]]:
     norm_context_str = "".join(norm_context)
 
     # Build normalized answer search term
-    norm_answer = []
+    norm_answer: List[str] = []
     prev_was_space = False
     for char in clean_answer:
         norm_c = normalize_char(char)
@@ -91,22 +94,54 @@ def find_answer_span(context: str, answer: str) -> Optional[Tuple[int, int]]:
 
 class QAPreprocessor:
     """Preprocesses Clickbait Spoiling datasets into standardized extractive
+
     Question-Answering token spans with active fallback monitoring.
+
+    Attributes:
+        tokenizer (AutoTokenizer): Tokenizer matching the target QA model.
+        max_length (int): Maximum sequence token constraint.
+        doc_stride (int): Sliding window stride steps for long articles.
+        logger (logging.Logger): Logger for tracking quality metrics.
+        total_processed (int): Total context windows analyzed.
+        fallback_count (int): Count of windows falling back to CLS index.
+        tag_fallbacks (Dict[str, int]): Fallback counts per spoiler type.
+        tag_totals (Dict[str, int]): Total counts per spoiler type.
     """
 
     def __init__(self, model_name: str, max_length: int = 512, doc_stride: int = 128):
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.max_length = max_length
-        self.doc_stride = doc_stride
+        """Initializes the QAPreprocessor.
+
+        Args:
+            model_name (str): HuggingFace model identifier.
+            max_length (int): Maximum sequence length constraint. Defaults to 512.
+            doc_stride (int): Sliding window stride. Defaults to 128.
+        """
+        self.tokenizer: AutoTokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.max_length: int = max_length
+        self.doc_stride: int = doc_stride
         self.logger = setup_logger("qa_preprocessor")
 
         # Diagnostics metrics for span extraction analysis
-        self.total_processed = 0
-        self.fallback_count = 0
-        self.tag_fallbacks = {"phrase": 0, "passage": 0, "multi": 0}
-        self.tag_totals = {"phrase": 0, "passage": 0, "multi": 0}
+        self.total_processed: int = 0
+        self.fallback_count: int = 0
+        self.tag_fallbacks: Dict[str, int] = {"phrase": 0, "passage": 0, "multi": 0}
+        self.tag_totals: Dict[str, int] = {"phrase": 0, "passage": 0, "multi": 0}
 
-    def prepare_train_features(self, examples):
+    def prepare_train_features(self, examples: Dict[str, Any]) -> Dict[str, Any]:
+        """Tokenizes inputs and maps character span answer targets back to token start/end positions.
+
+        Note:
+            If multiprocessing tokenization is used (`num_proc > 1` in `Dataset.map`),
+            the stateful diagnostic metrics (like self.fallback_count) will not aggregate
+            correctly across sub-processes. Keep `num_proc=1` if exact counts are required.
+
+        Args:
+            examples (Dict[str, Any]): Batched training examples from datasets.Dataset.
+
+        Returns:
+            Dict[str, Any]: Tokenized examples containing 'input_ids', 'attention_mask',
+                'start_positions', and 'end_positions'.
+        """
         # Flatten posts and target paragraphs into single strings
         questions = [join_text_list(q) for q in examples["postText"]]
 
@@ -167,7 +202,6 @@ class QAPreprocessor:
                 self.fallback_count += 1
                 self.tag_fallbacks[tag] = self.tag_fallbacks.get(tag, 0) + 1
 
-                # Downgraded to debug to keep stdout clean during processing
                 self.logger.debug(
                     f"Spoiler text not found in context window for uuid: {uuids[sample_index]}. "
                     f"Falling back to CLS index. Tag: {tag}"
@@ -211,7 +245,6 @@ class QAPreprocessor:
                     self.fallback_count += 1
                     self.tag_fallbacks[tag] = self.tag_fallbacks.get(tag, 0) + 1
 
-                    # Downgraded to debug to keep stdout clean during processing
                     self.logger.debug(
                         f"Answer span outside active token window for uuid: {uuids[sample_index]}. "
                         f"Falling back to CLS index. Tag: {tag}"
@@ -258,10 +291,8 @@ class QAPreprocessor:
         """Exports preprocessing diagnostic fallback metrics to a JSON file.
 
         Args:
-            path: Target directory or file path for JSON export.
+            path (str): Target directory or file path for JSON export.
         """
-        import json
-
         # Robustly handle directory creation even if the folder does not exist yet
         if not path.endswith(".json"):
             os.makedirs(path, exist_ok=True)

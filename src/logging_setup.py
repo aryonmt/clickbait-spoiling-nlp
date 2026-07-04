@@ -6,16 +6,22 @@ from datetime import datetime
 def setup_logger(name: str, log_dir: str = "logs") -> logging.Logger:
     """Sets up a logger that streams to the console and saves logs to a timestamped file.
 
+    Features a defensive propagation guard to prevent duplicate terminal output.
+
     Args:
-        name: The module or script name initializing the logger.
-        log_dir: Directory where log files are stored.
+        name (str): The module or script name initializing the logger.
+        log_dir (str): Directory where log files are stored. Defaults to "logs".
 
     Returns:
-        An initialized logging.Logger instance.
+        logging.Logger: An initialized and configured Logger instance.
     """
     os.makedirs(log_dir, exist_ok=True)
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
+
+    # Prevent duplicating console logs if third-party libraries (like PyTorch/Transformers)
+    # have configured their own root loggers.
+    logger.propagate = False
 
     # Prevent adding duplicate handlers if the logger is already configured
     if logger.handlers:

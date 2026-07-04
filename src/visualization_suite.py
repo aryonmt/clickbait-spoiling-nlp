@@ -1,6 +1,7 @@
 import json
 import os
 from datetime import datetime
+from typing import Any, Dict, List
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -11,26 +12,45 @@ from sklearn.metrics import classification_report, confusion_matrix
 
 from src.evaluation import compute_pair_metrics
 from src.logging_setup import setup_logger
-from src.utils import SPOILER_LABELS, extract_primary_tag
+from src.utils import SPOILER_LABELS, extract_primary_tag, join_text_list
 
 logger = setup_logger("visualization_suite")
 
 
 class EvaluationReportBuilder:
-    """Computes robust evaluation metrics and generates visual charts and HTML reports."""
+    """Computes robust evaluation metrics and generates visual charts and HTML reports
+
+    comparing predictions against validation ground truth.
+
+    Attributes:
+        predictions_path (str): Path to the predictions JSONL file.
+        val_path (str): Path to the validation ground truth JSONL file.
+        report_dir (str): Targeted unique directory created for exporting results.
+    """
 
     def __init__(
         self, predictions_path: str, val_path: str, output_dir: str = "reports"
     ):
-        self.predictions_path = predictions_path
-        self.val_path = val_path
+        """Initializes the EvaluationReportBuilder with target file paths.
+
+        Args:
+            predictions_path (str): Path to predictions JSONL file.
+            val_path (str): Path to validation JSONL file.
+            output_dir (str): Root directory for saving report assets. Defaults to "reports".
+        """
+        self.predictions_path: str = predictions_path
+        self.val_path: str = val_path
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.report_dir = os.path.join(output_dir, timestamp)
+        self.report_dir: str = os.path.join(output_dir, timestamp)
         os.makedirs(self.report_dir, exist_ok=True)
 
     def _load_and_align_data(self) -> pd.DataFrame:
-        """Loads both validation data and model predictions and aligns them on uuid."""
+        """Loads both validation data and model predictions and aligns them on UUID.
+
+        Returns:
+            pd.DataFrame: Merged DataFrame containing aligned actual and predicted records.
+        """
         logger.info(
             f"Loading files:\n - Ground truth: {self.val_path}\n - Predictions: {self.predictions_path}"
         )
@@ -43,13 +63,20 @@ class EvaluationReportBuilder:
         return merged_df
 
     def _compute_generation_metrics(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Computes BLEU, ROUGE-L, METEOR and semantic BERTScore per instance."""
+        """Computes BLEU-4, ROUGE-L, METEOR, and optional semantic BERTScore per instance.
+
+        Args:
+            df (pd.DataFrame): Aligned DataFrame containing 'spoiler_true' and 'spoiler_pred'.
+
+        Returns:
+            pd.DataFrame: Updated DataFrame enriched with metrics columns.
+        """
         scorer = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
         smoother = SmoothingFunction().method1
 
-        bleus = []
-        rouges = []
-        meteors = []
+        bleus: List[float] = []
+        rouges: List[float] = []
+        meteors: List[float] = []
 
         for _, row in df.iterrows():
             gt = row["spoiler_true"]
@@ -69,14 +96,8 @@ class EvaluationReportBuilder:
         try:
             import bert_score
 
-            references_str = [
-                " ".join(gt) if isinstance(gt, list) else str(gt)
-                for gt in df["spoiler_true"]
-            ]
-            candidates_str = [
-                " ".join(pred) if isinstance(pred, list) else str(pred)
-                for pred in df["spoiler_pred"]
-            ]
+            references_str = [join_text_list(gt) for gt in df["spoiler_true"]]
+            candidates_str = [join_text_list(pred) for pred in df["spoiler_pred"]]
             if references_str and candidates_str:
                 _, _, F1 = bert_score.score(
                     candidates_str, references_str, lang="en", verbose=False
@@ -91,8 +112,13 @@ class EvaluationReportBuilder:
 
         return df
 
-    def _plot_confusion_matrix(self, y_true: list, y_pred: list):
-        """Generates and saves the classification confusion matrix."""
+    def _plot_confusion_matrix(self, y_true: List[str], y_pred: List[str]) -> None:
+        """Generates and saves the classification confusion matrix heatmap.
+
+        Args:
+            y_true (List[str]): List of true primary labels.
+            y_pred (List[str]): List of predicted primary labels.
+        """
         plt.figure(figsize=(6, 5))
         cm = confusion_matrix(y_true, y_pred, labels=SPOILER_LABELS)
 
@@ -112,9 +138,13 @@ class EvaluationReportBuilder:
         plt.savefig(os.path.join(self.report_dir, "confusion_matrix.png"), dpi=150)
         plt.close()
 
-    def _plot_classification_metrics(self, report_dict: dict):
-        """Generates and saves bar plots of precision, recall, and f1 scores."""
-        metrics_data = []
+    def _plot_classification_metrics(self, report_dict: Dict[str, Any]) -> None:
+        """Generates and saves bar plots of precision, recall, and f1-scores.
+
+        Args:
+            report_dict (Dict[str, Any]): Dictionary output from classification_report.
+        """
+        metrics_data: List[Dict[str, Any]] = []
 
         for cls in SPOILER_LABELS:
             if cls in report_dict:
@@ -142,8 +172,12 @@ class EvaluationReportBuilder:
         )
         plt.close()
 
-    def _plot_confidence_distribution(self, df: pd.DataFrame):
-        """Generates a histogram comparing confidence scores for correct vs incorrect predictions."""
+    def _plot_confidence_distribution(self, df: pd.DataFrame) -> None:
+        """Generates a histogram comparing confidence scores for correct vs incorrect predictions.
+
+        Args:
+            df (pd.DataFrame): Dataframe containing 'confidence', 'true_tag', and 'pred_tag'.
+        """
         if "confidence" not in df.columns:
             logger.warning(
                 "Softmax confidence scores not found in predictions. Skipping histogram."
@@ -172,10 +206,16 @@ class EvaluationReportBuilder:
         )
         plt.close()
 
-    def _plot_error_by_length(self, df: pd.DataFrame):
-        """Generates a bar plot showing error rates categorized by the article length (word counts)."""
+    def _plot_error_by_length(self, df: pd.DataFrame) -> None:
+        """Generates a bar plot showing error rates categorized by the article length (word counts).
+
+        Args:
+            df (pd.DataFrame): Dataframe containing target paragraphs and correctness flags.
+        """
         df["article_len"] = df["targetParagraphs"].apply(
-            lambda x: len(" ".join(x).split()) if isinstance(x, list) else 0
+            lambda x: (
+                len(join_text_list(x).split()) if isinstance(x, (list, str)) else 0
+            )
         )
         df["is_correct"] = df["true_tag"] == df["pred_tag"]
 
@@ -222,8 +262,12 @@ class EvaluationReportBuilder:
         plt.savefig(os.path.join(self.report_dir, "error_by_length.png"), dpi=150)
         plt.close()
 
-    def _plot_task2_by_type(self, df: pd.DataFrame):
-        """Generates and saves boxplots of text generation metrics per spoiler type."""
+    def _plot_task2_by_type(self, df: pd.DataFrame) -> None:
+        """Generates and saves boxplots of text generation metrics per spoiler type.
+
+        Args:
+            df (pd.DataFrame): Dataframe containing 'bleu', 'rouge_l', and 'true_tag'.
+        """
         plt.figure(figsize=(12, 5))
 
         plt.subplot(1, 2, 1)
@@ -258,13 +302,21 @@ class EvaluationReportBuilder:
         plt.savefig(os.path.join(self.report_dir, "task2_scores_by_type.png"), dpi=150)
         plt.close()
 
-    def _plot_length_comparison(self, df: pd.DataFrame):
-        """Generates and saves predicted length vs actual length scatterplot."""
+    def _plot_length_comparison(self, df: pd.DataFrame) -> None:
+        """Generates and saves a predicted length vs actual length scatterplot.
+
+        Args:
+            df (pd.DataFrame): Dataframe containing ground-truth and predicted spoiler values.
+        """
         df["gt_len"] = df["spoiler_true"].apply(
-            lambda x: len(" ".join(x).split()) if isinstance(x, list) else 0
+            lambda x: (
+                len(join_text_list(x).split()) if isinstance(x, (list, str)) else 0
+            )
         )
         df["pred_len"] = df["spoiler_pred"].apply(
-            lambda x: len(" ".join(x).split()) if isinstance(x, list) else 0
+            lambda x: (
+                len(join_text_list(x).split()) if isinstance(x, (list, str)) else 0
+            )
         )
 
         plt.figure(figsize=(7, 5))
@@ -412,7 +464,7 @@ class EvaluationReportBuilder:
         ) as f:
             f.write(html_content)
 
-    def build_report(self):
+    def build_report(self) -> None:
         """Orchestrates metric computations, plotting, and report emission."""
         df = self._load_and_align_data()
         df = self._compute_generation_metrics(df)

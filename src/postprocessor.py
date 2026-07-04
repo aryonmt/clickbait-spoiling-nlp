@@ -20,9 +20,9 @@ def enforce_length_constraints(
     6 words, falls back to the sentence containing the extracted span.
 
     Args:
-        spoiler_text: Raw extracted spoiler text from model.
-        spoiler_type: Expected tag ('phrase' or 'passage').
-        context: Source article target paragraphs as a single string.
+        spoiler_text (str): Raw extracted spoiler text from model.
+        spoiler_type (str): Expected spoiler type ('phrase' or 'passage').
+        context (str): Source article target paragraphs as a single string. Defaults to "".
 
     Returns:
         str: Post-processed spoiler text.
@@ -36,11 +36,12 @@ def enforce_length_constraints(
         if len(words) > 5:
             return " ".join(words[:5])
     elif spoiler_type == "passage":
-        # Rule 2: If passage spoiler is too short, recover the containing sentence to maintain structure
+        # Rule 2: If passage spoiler is too short, recover the containing sentence to maintain structure.
+        # Implements a case-insensitive lookup to guarantee high matching rate across different casing pipelines.
         if len(words) < 6 and context:
             sentences = nltk.sent_tokenize(context)
             for sent in sentences:
-                if spoiler_text in sent:
+                if spoiler_text.lower() in sent.lower():
                     return sent.strip()
     return spoiler_text
 
@@ -51,8 +52,8 @@ def detect_enumeration_spoiler(
     """Detects numbered-list patterns in context and extracts them as separate spoilers.
 
     Args:
-        context: Source article target paragraphs as a single string.
-        n_expected: Optional expected number of items extracted from the clickbait post.
+        context (str): Source article target paragraphs as a single string.
+        n_expected (int, optional): Optional expected number of items extracted from the clickbait post.
 
     Returns:
         Optional[List[str]]: List of matched items if list pattern is detected, else None.

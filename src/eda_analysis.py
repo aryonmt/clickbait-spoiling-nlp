@@ -1,16 +1,21 @@
 import os
+from typing import List
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-from src.utils import extract_primary_tag
+from src.utils import extract_primary_tag, join_text_list
 
 
 class TextLengthAnalyzer:
-    """Analyzer to calculate sequence lengths and statistical percentiles for
+    """Analyzer to calculate sequence lengths, lexical overlaps, positional biases,
 
-    text features in the dataset.
+    and statistical percentiles for text features in the dataset.
+
+    Attributes:
+        df (pd.DataFrame): Copy of the target dataset with analyzed metrics.
+        output_dir (str): Directory path where generated plots are saved.
     """
 
     def __init__(self, df: pd.DataFrame, output_dir: str = "reports"):
@@ -20,37 +25,39 @@ class TextLengthAnalyzer:
             df (pd.DataFrame): The target dataset.
             output_dir (str): Directory where generated EDA plots will be saved.
         """
-        self.df = df.copy()
-        self.output_dir = output_dir
+        self.df: pd.DataFrame = df.copy()
+        self.output_dir: str = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
 
     @staticmethod
     def _count_words(text_input) -> int:
-        """Helper function to calculate word count for both strings and lists of
-
-        strings.
+        """Helper function to calculate total word count utilizing central utilities.
 
         Args:
-            text_input: Can be a string or a list of strings (e.g.,
-              targetParagraphs).
+            text_input (Union[str, List[str]]): String or list of strings to analyze.
 
         Returns:
             int: Total word count.
         """
-        if isinstance(text_input, list):
-            full_text = " ".join(text_input)
-        elif isinstance(text_input, str):
-            full_text = text_input
-        else:
-            return 0
+        full_text = join_text_list(text_input)
         return len(full_text.split())
 
     def process_lengths(self) -> pd.DataFrame:
-        """Computes word counts for postText and targetParagraphs columns.
+        """Computes word counts for clickbait posts and article bodies.
 
         Returns:
-            pd.DataFrame: DataFrame containing the processed lengths.
+            pd.DataFrame: DataFrame containing computed sequence lengths.
+
+        Raises:
+            KeyError: If mandatory text columns are missing from the dataset.
         """
+        required_cols = ["postText", "targetParagraphs"]
+        for col in required_cols:
+            if col not in self.df.columns:
+                raise KeyError(
+                    f"[ERROR] Mandatoy column '{col}' is missing from the dataset."
+                )
+
         print("\nCalculating word counts for sequences...")
         self.df["post_word_count"] = self.df["postText"].apply(self._count_words)
         self.df["article_word_count"] = self.df["targetParagraphs"].apply(
@@ -59,12 +66,13 @@ class TextLengthAnalyzer:
         return self.df
 
     def display_statistics(self) -> None:
-        """Computes and prints percentile statistics for sequence lengths to
-
-        guide max_length selection.
-        """
+        """Computes and prints percentile statistics for sequence lengths to guide max_length choices."""
         print("\n=== Sequence Length Statistical Summary ===")
         columns_to_analyze = ["post_word_count", "article_word_count"]
+
+        # Ensure processed columns exist
+        if "post_word_count" not in self.df.columns:
+            self.process_lengths()
 
         stats = self.df[columns_to_analyze].describe(
             percentiles=[0.5, 0.75, 0.9, 0.95, 0.99]
@@ -72,7 +80,10 @@ class TextLengthAnalyzer:
         print(stats)
 
     def plot_distributions(self) -> None:
-        """Generates and saves distribution plots for sequence lengths."""
+        """Generates and saves distribution plots of sequence word counts."""
+        if "post_word_count" not in self.df.columns:
+            self.process_lengths()
+
         plt.figure(figsize=(12, 5))
 
         plt.subplot(1, 2, 1)
@@ -89,15 +100,15 @@ class TextLengthAnalyzer:
 
         plt.tight_layout()
         plot_path = os.path.join(self.output_dir, "sequence_length_distributions.png")
-        plt.savefig(plot_path)
+        plt.savefig(plot_path, dpi=150)
         print(f"\n[SUCCESS] Distribution plots saved to: {plot_path}")
         plt.close()
 
     def analyze_class_balance(self) -> pd.Series:
-        """Analyzes and prints the distribution of spoiler types (tags).
+        """Analyzes and prints the distribution of spoiler classes (phrase/passage/multi).
 
         Returns:
-            pd.Series: Percentage distribution of each class.
+            pd.Series: Distribution series of extract primary tags.
         """
         print("\n=== Class Distribution Analysis (Task 1) ===")
         class_series = self.df["tags"].apply(extract_primary_tag)
@@ -110,25 +121,16 @@ class TextLengthAnalyzer:
         return class_series
 
     def analyze_spoiler_overlap(self) -> None:
-        """Calculates the lexical overlap (Jaccard Similarity) between the
+        """Calculates Jaccard Similarity between target spoilers and complete article bodies
 
-        human spoiler and the article content to verify if it is fully
-        extractive.
+        to verify extractiveness rate.
         """
         print("\n=== Spoiler Lexical Overlap Analysis ===")
 
-        overlaps = []
+        overlaps: List[float] = []
         for _, row in self.df.iterrows():
-            paragraphs = (
-                " ".join(row["targetParagraphs"])
-                if isinstance(row["targetParagraphs"], list)
-                else str(row["targetParagraphs"])
-            )
-            spoilers = (
-                " ".join(row["spoiler"])
-                if isinstance(row["spoiler"], list)
-                else str(row["spoiler"])
-            )
+            paragraphs = join_text_list(row.get("targetParagraphs", ""))
+            spoilers = join_text_list(row.get("spoiler", ""))
 
             words_article = set(paragraphs.lower().split())
             words_spoiler = set(spoilers.lower().split())
@@ -152,13 +154,10 @@ class TextLengthAnalyzer:
         )
 
     def analyze_positional_bias(self) -> None:
-        """Extracts and analyzes the paragraph indices where spoilers are
-
-        located to detect positional bias (e.g., Lead Bias).
-        """
+        """Analyzes paragraph indices of the first segment of target spoilers to find positional bias."""
         print("\n=== Spoiler Positional Bias Analysis ===")
 
-        spoiler_paragraphs = []
+        spoiler_paragraphs: List[int] = []
         for _, row in self.df.iterrows():
             positions = row.get("spoilerPositions", [])
             if isinstance(positions, list) and len(positions) > 0:
@@ -186,15 +185,12 @@ class TextLengthAnalyzer:
         plt.tight_layout()
 
         plot_path = os.path.join(self.output_dir, "spoiler_positional_bias.png")
-        plt.savefig(plot_path)
+        plt.savefig(plot_path, dpi=150)
         print(f"[SUCCESS] Positional bias plot saved to: {plot_path}")
         plt.close()
 
     def analyze_tag_specific_lengths(self) -> None:
-        """Analyzes the word count distribution of the spoilers themselves,
-
-        grouped by their specific tags (phrase, passage, multi).
-        """
+        """Computes and plots statistical spoiler length summaries grouped by their tag."""
         print("\n=== Tag-Specific Spoiler Length Analysis ===")
 
         self.df["spoiler_word_count"] = self.df["spoiler"].apply(self._count_words)
@@ -221,40 +217,26 @@ class TextLengthAnalyzer:
         plt.tight_layout()
 
         plot_path = os.path.join(self.output_dir, "spoiler_length_by_tag.png")
-        plt.savefig(plot_path)
+        plt.savefig(plot_path, dpi=150)
         print(f"[SUCCESS] Tag-specific length plot saved to: {plot_path}")
         plt.close()
 
     def analyze_oracle_retrieval_bound(self) -> None:
-        """Evaluates an informational retrieval upper-bound using Jaccard
+        """Evaluates Jaccard Similarity between clickbait posts and article paragraphs,
 
-        Similarity between the clickbait post and paragraphs, computing Recall@K
-        for the ground-truth spoiler paragraph.
+        measuring Recall@1, Recall@3, and Recall@5 for retrieving ground-truth spoiler paragraphs.
         """
         print("\n=== Oracle Retrieval Upper-Bound Analysis (IR Metrics) ===")
 
-        # Oracle metrics logging
         recall_at_1 = 0
         recall_at_3 = 0
         recall_at_5 = 0
         total_valid_cases = 0
 
         for _, row in self.df.iterrows():
-            post_words = set(
-                (
-                    " ".join(row["postText"])
-                    if isinstance(row["postText"], list)
-                    else str(row["postText"])
-                )
-                .lower()
-                .split()
-            )
-            paragraphs = row["targetParagraphs"]
-            spoilers = (
-                " ".join(row["spoiler"])
-                if isinstance(row["spoiler"], list)
-                else str(row["spoiler"])
-            )
+            post_words = set(join_text_list(row.get("postText", "")).lower().split())
+            paragraphs = row.get("targetParagraphs", [])
+            spoilers = join_text_list(row.get("spoiler", ""))
 
             if not paragraphs or not spoilers:
                 continue
@@ -270,7 +252,7 @@ class TextLengthAnalyzer:
 
             scored_paragraphs = []
             for idx, para in enumerate(paragraphs):
-                para_words = set(para.lower().split())
+                para_words = set(str(para).lower().split())
                 intersection = post_words.intersection(para_words)
                 union = post_words.union(para_words)
                 jaccard_score = len(intersection) / len(union) if union else 0.0

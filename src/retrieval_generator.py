@@ -25,7 +25,15 @@ class RetrievalSpoilerGenerator:
 
     @staticmethod
     def _compute_jaccard(tokens_a: set, tokens_b: set) -> float:
-        """Calculates Jaccard Similarity between two sets of tokens."""
+        """Calculates Jaccard Similarity between two sets of tokens.
+
+        Args:
+            tokens_a (set): First token set.
+            tokens_b (set): Second token set.
+
+        Returns:
+            float: Calculated Jaccard coefficient (intersection over union).
+        """
         intersection = tokens_a.intersection(tokens_b)
         union = tokens_a.union(tokens_b)
         return len(intersection) / len(union) if union else 0.0
@@ -34,12 +42,12 @@ class RetrievalSpoilerGenerator:
     def generate_multi_spoiler_jaccard(
         cls, post_text: str, paragraphs: List[str], top_k: int = 3
     ) -> List[str]:
-        """Selects top-k sentences across all paragraphs ranked by Jaccard similarity.
+        """Selects top-k sentences across all paragraphs ranked by Jaccard similarity to the clickbait post.
 
         Args:
-            post_text: The clickbait headline string.
-            paragraphs: All paragraphs from the source article.
-            top_k: Number of highest ranking sentences to extract.
+            post_text (str): The clickbait headline string.
+            paragraphs (List[str]): All paragraphs from the source article.
+            top_k (int): Number of highest ranking sentences to extract. Defaults to 3.
 
         Returns:
             List[str]: Extracted top-k spoiler sentences.
@@ -77,12 +85,12 @@ class RetrievalSpoilerGenerator:
     def generate_multi_spoiler_tfidf(
         cls, post_text: str, paragraphs: List[str], top_k: int = 3
     ) -> List[str]:
-        """Selects top-k sentences across all paragraphs ranked by TF-IDF Cosine Similarity.
+        """Selects top-k sentences across all paragraphs ranked by TF-IDF Cosine Similarity to the clickbait post.
 
         Args:
-            post_text: The clickbait headline string.
-            paragraphs: All paragraphs from the source article.
-            top_k: Number of highest ranking sentences to extract.
+            post_text (str): The clickbait headline string.
+            paragraphs (List[str]): All paragraphs from the source article.
+            top_k (int): Number of highest ranking sentences to extract. Defaults to 3.
 
         Returns:
             List[str]: Extracted top-k spoiler sentences.
@@ -156,10 +164,10 @@ class RetrievalSpoilerGenerator:
         """Orchestrator method for multi-type spoiler generation.
 
         Args:
-            post_text: The clickbait headline string.
-            paragraphs: All paragraphs from the source article.
-            top_k: Number of highest ranking sentences to extract.
-            method: Similarity method ('jaccard' or 'tfidf').
+            post_text (str): The clickbait headline string.
+            paragraphs (List[str]): All paragraphs from the source article.
+            top_k (int): Number of highest ranking sentences to extract. Defaults to 3.
+            method (str): Similarity method ('jaccard' or 'tfidf'). Defaults to 'tfidf'.
 
         Returns:
             List[str]: Extracted top-k spoiler sentences.

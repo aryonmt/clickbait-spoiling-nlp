@@ -1,25 +1,21 @@
 from typing import List, Optional, Union
 
 # Global constant for strict label ordering across evaluation and visualization
-SPOILER_LABELS = ["phrase", "passage", "multi"]
+SPOILER_LABELS: List[str] = ["phrase", "passage", "multi"]
 
 
 def join_text_list(value: Union[str, List[str]], limit: Optional[int] = None) -> str:
-    """Joins a list of strings into one space-separated string, optionally
+    """Joins a list of strings into one space-separated string, optionally truncated.
 
-    truncated to the first `limit` items; stringifies non-list input as-is.
-    Centralizes a pattern ("post"/"targetParagraphs" flattening) that was
-    previously duplicated across baseline_classifier, transformer_classifier,
-    inference_transformer, and main_integrated_pipeline.
+    Stringifies non-list inputs as-is. Centralizes sequence flattening patterns
+    previously duplicated across multiple classifiers and pipelines.
 
     Args:
-        value (Union[str, List[str]]): A list of text segments (e.g. postText
-          words or article paragraphs), or an already-scalar string.
-        limit (Optional[int]): If given, only the first `limit` list items
-          are joined (e.g. the first N paragraphs of an article).
+        value (Union[str, List[str]]): A list of text segments, or an already-scalar string.
+        limit (int, optional): If given, only the first `limit` list items are joined.
 
     Returns:
-        str: The joined (and optionally truncated) string.
+        str: The joined (and optionally truncated) space-separated string.
     """
     if isinstance(value, list):
         return " ".join(value[:limit] if limit else value)
@@ -27,15 +23,13 @@ def join_text_list(value: Union[str, List[str]], limit: Optional[int] = None) ->
 
 
 def extract_primary_tag(tag_input: Union[str, List[str]]) -> str:
-    """Extracts the first string tag if the input is a list, otherwise returns
-    the raw string safely. Returns an empty string if the input is empty or None.
+    """Extracts the first string tag if the input is a list, otherwise returns the raw string safely.
 
     Args:
-        tag_input (Union[str, List[str]]): The tag field extracted from the
-          dataset.
+        tag_input (Union[str, List[str]]): The raw tag field extracted from the dataset.
 
     Returns:
-        str: The cleaned primary scalar tag.
+        str: The cleaned primary scalar string tag, or an empty string if input is invalid.
     """
     if not tag_input:
         return ""

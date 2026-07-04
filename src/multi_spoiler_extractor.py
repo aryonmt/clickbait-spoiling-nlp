@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import torch
 
@@ -8,11 +8,13 @@ try:
     from thefuzz import fuzz
 
     def compute_similarity(s1: str, s2: str) -> float:
+        """Computes lexical similarity using thefuzz ratio."""
         return fuzz.ratio(s1, s2) / 100.0
 except ImportError:
     from difflib import SequenceMatcher
 
     def compute_similarity(s1: str, s2: str) -> float:
+        """Fallback lexical similarity using Python's SequenceMatcher."""
         return SequenceMatcher(None, s1, s2).ratio()
 
 
@@ -27,10 +29,29 @@ def generate_iterative_multi_spoiler(
     max_iterations: int = 7,
     max_spoilers: int = 5,
     similarity_threshold: float = 0.6,
-    device: torch.device = None,
+    device: Optional[torch.device] = None,
 ) -> List[str]:
-    """Iteratively extracts non-redundant spoiler spans using a QA model and token-level logit suppression."""
-    spoilers = []
+    """Iteratively extracts non-redundant spoiler spans using a QA model and token-level logit suppression.
+
+    Features a defensive guard against Slow Tokenizers to prevent runtime type errors.
+
+    Args:
+        model: Question answering transformer model.
+        tokenizer: Fast tokenizer matching the model.
+        question (str): The clickbait headline string.
+        context (str): Source article target paragraphs.
+        max_length (int): Maximum sequence token constraint.
+        doc_stride (int): Sliding window stride steps.
+        max_answer_length (int): Maximum length boundary for sub-segment predictions.
+        max_iterations (int): Maximum extraction steps to run. Defaults to 7.
+        max_spoilers (int): Maximum unique spoilers to extract. Defaults to 5.
+        similarity_threshold (float): Jaccard/Fuzzy threshold to discard redundant answers. Defaults to 0.6.
+        device (torch.device, optional): Computing target (cuda or cpu).
+
+    Returns:
+        List[str]: Extracted list of unique, non-overlapping multi-spoilers.
+    """
+    spoilers: List[str] = []
 
     # Format tokenize first to extract document window lengths
     encodings = tokenizer(
@@ -91,6 +112,11 @@ def generate_iterative_multi_spoiler(
         for w_idx in range(num_windows):
             offset_mapping = encodings["offset_mapping"][w_idx]
             sequence_ids = encodings.sequence_ids(w_idx)
+
+            # Defensive Check: Protect against python crashes if the tokenizer
+            # falls back to a Slow Tokenizer (which doesn't support sequence mapping).
+            if sequence_ids is None:
+                continue
 
             for idx, offsets in enumerate(offset_mapping):
                 if sequence_ids[idx] == 1:  # Context tokens only
