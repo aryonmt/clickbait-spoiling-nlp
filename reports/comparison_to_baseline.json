@@ -1,0 +1,24 @@
+{
+    "metrics": {
+        "task1_accuracy": {
+            "baseline": 0.73625,
+            "current": 0.7225,
+            "delta": -0.013749999999999929
+        },
+        "task1_macro_f1": {
+            "baseline": 0.73082,
+            "current": 0.7177123042029608,
+            "delta": -0.013107695797039187
+        },
+        "task2_mean_bleu": {
+            "baseline": 0.16818,
+            "current": 0.19338138493231088,
+            "delta": 0.02520138493231089
+        },
+        "task2_mean_rouge_l": {
+            "baseline": 0.43362,
+            "current": 0.4492910601414685,
+            "delta": 0.015671060141468518
+        }
+    }
+}

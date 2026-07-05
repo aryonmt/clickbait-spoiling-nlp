@@ -1,0 +1,47 @@
+{
+    "task1_accuracy": 0.7225,
+    "task1_macro_f1": 0.7177123042029608,
+    "task2_mean_bleu": 0.19338138493231088,
+    "task2_mean_rouge_l": 0.4492910601414685,
+    "task2_mean_meteor": 0.4109007092951637,
+    "task2_mean_bert_score": 0.9044805264472962,
+    "task2_cls_fallback_rate": 0.005,
+    "task2_cls_fallback_label": "0.50% (\u062a\u062e\u0645\u06cc\u0646\u06cc\u060c \u0646\u0647 \u062f\u0642\u06cc\u0642)",
+    "task1_by_type": {
+        "phrase": {
+            "precision": 0.7492447129909365,
+            "recall": 0.7402985074626866,
+            "f1": 0.7447447447447447
+        },
+        "passage": {
+            "precision": 0.7311475409836066,
+            "recall": 0.6925465838509317,
+            "f1": 0.7113237639553429
+        },
+        "multi": {
+            "precision": 0.6524390243902439,
+            "recall": 0.7482517482517482,
+            "f1": 0.6970684039087948
+        }
+    },
+    "task2_by_type": {
+        "phrase": {
+            "mean_bleu": 0.18751943477083066,
+            "mean_rouge": 0.6170017705073477,
+            "mean_meteor": 0.5054838015576614,
+            "mean_bert_score": 0.9344428781253188
+        },
+        "passage": {
+            "mean_bleu": 0.2389295166078489,
+            "mean_rouge": 0.37069213004101065,
+            "mean_meteor": 0.3684708113696243,
+            "mean_bert_score": 0.8938853116879552
+        },
+        "multi": {
+            "mean_bleu": 0.10455099964960206,
+            "mean_rouge": 0.2333873365035516,
+            "mean_meteor": 0.284866382190877,
+            "mean_bert_score": 0.8581467595967379
+        }
+    }
+}
