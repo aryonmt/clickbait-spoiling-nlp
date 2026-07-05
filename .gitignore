@@ -32,5 +32,5 @@ final_complete_submission.jsonl
 !reports/**/*.html
 !reports/**/*.json
 
-legacy
-scripts
+legacy/
+scripts/
