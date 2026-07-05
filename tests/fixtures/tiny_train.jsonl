@@ -1,4 +1,0 @@
-{"uuid": "1", "postText": ["What a beautiful day"], "targetParagraphs": ["It was a beautiful day in Seattle.", "The weather was sunny."], "spoiler": ["sunny"], "tags": ["phrase"], "spoilerPositions": [[[1, 17], [1, 22]]]}
-{"uuid": "2", "postText": ["This is the best movie"], "targetParagraphs": ["The movie was wonderful.", "It won three awards."], "spoiler": ["The movie was wonderful."], "tags": ["passage"], "spoilerPositions": [[[0, 0], [0, 24]]]}
-{"uuid": "3", "postText": ["These are the top places"], "targetParagraphs": ["Go to Paris.", "Visit Rome.", "Explore Tokyo."], "spoiler": ["Paris", "Rome"], "tags": ["multi"], "spoilerPositions": [[[0, 6], [0, 11]], [[1, 6], [1, 10]]]}
-{"uuid": "4", "postText": ["Where to buy books"], "targetParagraphs": ["Library has books.", "Bookstores are great."], "spoiler": ["online"], "tags": ["phrase"], "spoilerPositions": []}
