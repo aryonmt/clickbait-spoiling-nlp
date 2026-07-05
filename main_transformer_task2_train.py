@@ -44,7 +44,7 @@ VARIANT_CONFIG: Dict[str, Dict[str, Any]] = {
         "description": "Fine-tune a Transformer model for Passage Spoilers Extraction",
     },
     "qa": {
-        "tag_filter": None,  # no filtering: train on the full dataset
+        "tag_filter": None,
         "model_name_attr": "task2_model_name",
         "output_dir_attr": "output_dir",
         "epochs_attr": "task2_epochs",

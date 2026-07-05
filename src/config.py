@@ -50,9 +50,7 @@ class PipelineConfig:
     task1_model_name: str = "roberta-base"
     task1_max_length: int = 512
     task1_batch_size: int = 8
-    task1_lr: float = (
-        2e-5  # Optimized stable LR for roberta-base sequence classification
-    )
+    task1_lr: float = 2e-5
     task1_epochs: int = 5
     task1_weight_decay: float = 0.01
     task1_warmup_steps: int = 50
@@ -63,7 +61,7 @@ class PipelineConfig:
     task2_max_length: int = 512
     task2_doc_stride: int = 128
     task2_batch_size: int = 8
-    task2_lr: float = 3e-5  # Optimized stable LR for roberta-base extractive QA
+    task2_lr: float = 3e-5
     task2_epochs: int = 3
     task2_weight_decay: float = 0.01
 
@@ -79,8 +77,8 @@ class PipelineConfig:
     task2_passage_output_dir: str = "results_qa_passage"
     task2_passage_epochs: int = 3
 
-    # Multi-generator parameters (Phase 3 & 4)
-    task2_multi_strategy: str = "extractive_iterative"
+    # Multi-generator parameters
+    task2_multi_strategy: str = "seq2seq"
     task2_multi_method: str = "jaccard"
     task2_multi_top_k: int = 5
     task2_multi_seq2seq_dir: str = "results_multi_seq2seq"
