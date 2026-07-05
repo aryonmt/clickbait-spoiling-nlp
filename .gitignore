@@ -33,3 +33,4 @@ final_complete_submission.jsonl
 !reports/**/*.json
 
 legacy
+scripts

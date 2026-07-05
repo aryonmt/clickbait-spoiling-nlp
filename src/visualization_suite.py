@@ -63,14 +63,7 @@ class EvaluationReportBuilder:
         return merged_df
 
     def _compute_generation_metrics(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Computes BLEU-4, ROUGE-L, METEOR, and optional semantic BERTScore per instance.
-
-        Args:
-            df (pd.DataFrame): Aligned DataFrame containing 'spoiler_true' and 'spoiler_pred'.
-
-        Returns:
-            pd.DataFrame: Updated DataFrame enriched with metrics columns.
-        """
+        """Computes BLEU-4, ROUGE-L, METEOR, and optional semantic BERTScore per instance."""
         scorer = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
         smoother = SmoothingFunction().method1
 
@@ -207,11 +200,7 @@ class EvaluationReportBuilder:
         plt.close()
 
     def _plot_error_by_length(self, df: pd.DataFrame) -> None:
-        """Generates a bar plot showing error rates categorized by the article length (word counts).
-
-        Args:
-            df (pd.DataFrame): Dataframe containing target paragraphs and correctness flags.
-        """
+        """Generates a bar plot showing error rates categorized by the article length (word counts)."""
         df["article_len"] = df["targetParagraphs"].apply(
             lambda x: (
                 len(join_text_list(x).split()) if isinstance(x, (list, str)) else 0
@@ -263,11 +252,7 @@ class EvaluationReportBuilder:
         plt.close()
 
     def _plot_task2_by_type(self, df: pd.DataFrame) -> None:
-        """Generates and saves boxplots of text generation metrics per spoiler type.
-
-        Args:
-            df (pd.DataFrame): Dataframe containing 'bleu', 'rouge_l', and 'true_tag'.
-        """
+        """Generates and saves boxplots of text generation metrics per spoiler type."""
         plt.figure(figsize=(12, 5))
 
         plt.subplot(1, 2, 1)
@@ -303,11 +288,7 @@ class EvaluationReportBuilder:
         plt.close()
 
     def _plot_length_comparison(self, df: pd.DataFrame) -> None:
-        """Generates and saves a predicted length vs actual length scatterplot.
-
-        Args:
-            df (pd.DataFrame): Dataframe containing ground-truth and predicted spoiler values.
-        """
+        """Generates and saves a predicted length vs actual length scatterplot."""
         df["gt_len"] = df["spoiler_true"].apply(
             lambda x: (
                 len(join_text_list(x).split()) if isinstance(x, (list, str)) else 0
@@ -355,7 +336,7 @@ class EvaluationReportBuilder:
         .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }}
         .card {{ background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
         .metric-value {{ font-size: 24px; font-weight: bold; color: #2980b9; }}
-        table {{ width: 100%; border-collapse: collapse; margin-top: 15px; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; }}
         th, td {{ padding: 12px; border: 1px solid #ddd; text-align: left; }}
         th {{ background-color: #34495e; color: white; }}
         tr:nth-child(even) {{ background-color: #f9f9f9; }}
@@ -367,8 +348,8 @@ class EvaluationReportBuilder:
     <p>Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
 
     <div class="card">
-        <h2>System Performance Metrics</h2>
-        <div class="grid" style="grid-template-columns: repeat(5, 1fr);">
+        <h2>System Performance Metrics (Overall Leaderboard Summary)</h2>
+        <div class="grid" style="grid-template-columns: repeat(4, 1fr);">
             <div class="card" style="text-align: center;">
                 <p>Task 1 Macro F1</p>
                 <p class="metric-value">{summary["task1_macro_f1"]:.4f}</p>
@@ -378,18 +359,93 @@ class EvaluationReportBuilder:
                 <p class="metric-value">{summary["task1_accuracy"]:.4f}</p>
             </div>
             <div class="card" style="text-align: center;">
-                <p>Task 2 Mean BLEU</p>
+                <p>Task 2 Mean BLEU-4</p>
                 <p class="metric-value">{summary["task2_mean_bleu"]:.4f}</p>
             </div>
             <div class="card" style="text-align: center;">
-                <p>Task 2 Mean ROUGE-L</p>
-                <p class="metric-value">{summary["task2_mean_rouge_l"]:.4f}</p>
-            </div>
-            <div class="card" style="text-align: center;">
-                <p>Task 2 CLS Fallback Rate</p>
-                <p class="metric-value">{summary["task2_cls_fallback_label"]}</p>
+                <p>Task 2 Mean BERTScore</p>
+                <p class="metric-value">{summary["task2_mean_bert_score"]:.4f}</p>
             </div>
         </div>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h2>Task 1: Classification Performance Table (Paper Format)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Spoiler Type (Class)</th>
+                    <th>Precision (Pr.)</th>
+                    <th>Recall (Rec.)</th>
+                    <th>F1-Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><b>Phrase</b></td>
+                    <td>{summary["task1_by_type"]["phrase"]["precision"]:.4f}</td>
+                    <td>{summary["task1_by_type"]["phrase"]["recall"]:.4f}</td>
+                    <td>{summary["task1_by_type"]["phrase"]["f1"]:.4f}</td>
+                </tr>
+                <tr>
+                    <td><b>Passage</b></td>
+                    <td>{summary["task1_by_type"]["passage"]["precision"]:.4f}</td>
+                    <td>{summary["task1_by_type"]["passage"]["recall"]:.4f}</td>
+                    <td>{summary["task1_by_type"]["passage"]["f1"]:.4f}</td>
+                </tr>
+                <tr>
+                    <td><b>Multi</b></td>
+                    <td>{summary["task1_by_type"]["multi"]["precision"]:.4f}</td>
+                    <td>{summary["task1_by_type"]["multi"]["recall"]:.4f}</td>
+                    <td>{summary["task1_by_type"]["multi"]["f1"]:.4f}</td>
+                </tr>
+                <tr style="background-color: #eaeded; font-weight: bold;">
+                    <td>Overall Accuracy</td>
+                    <td colspan="2" style="text-align: center;">-</td>
+                    <td>{summary["task1_accuracy"]:.4f}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h2>Task 2: Text Generation Performance Table (Paper Format)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Group / Spoiler Tag</th>
+                    <th>BLEU-4 (BL4)</th>
+                    <th>BERTScore (BSc.)</th>
+                    <th>METEOR (MET)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="background-color: #ebf5fb; font-weight: bold;">
+                    <td>All (Overall)</td>
+                    <td>{summary["task2_mean_bleu"]:.4f}</td>
+                    <td>{summary["task2_mean_bert_score"]:.4f}</td>
+                    <td>{summary["task2_mean_meteor"]:.4f}</td>
+                </tr>
+                <tr>
+                    <td><b>Phrase</b></td>
+                    <td>{summary["task2_by_type"]["phrase"]["mean_bleu"]:.4f}</td>
+                    <td>{summary["task2_by_type"]["phrase"]["mean_bert_score"]:.4f}</td>
+                    <td>{summary["task2_by_type"]["phrase"]["mean_meteor"]:.4f}</td>
+                </tr>
+                <tr>
+                    <td><b>Passage</b></td>
+                    <td>{summary["task2_by_type"]["passage"]["mean_bleu"]:.4f}</td>
+                    <td>{summary["task2_by_type"]["passage"]["mean_bert_score"]:.4f}</td>
+                    <td>{summary["task2_by_type"]["passage"]["mean_meteor"]:.4f}</td>
+                </tr>
+                <tr>
+                    <td><b>Multi</b></td>
+                    <td>{summary["task2_by_type"]["multi"]["mean_bleu"]:.4f}</td>
+                    <td>{summary["task2_by_type"]["multi"]["mean_bert_score"]:.4f}</td>
+                    <td>{summary["task2_by_type"]["multi"]["mean_meteor"]:.4f}</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 
     <div class="grid">

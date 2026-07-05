@@ -58,9 +58,11 @@ def main() -> None:
     y_true_tags = val_df["tags"].apply(extract_primary_tag).tolist()
     ground_truth_spoilers = val_df["spoiler"].tolist()
 
-    # Evaluate performance for both tasks
+    # Evaluate performance for both tasks using the new formatted leaderboard metrics
     AdvancedEvaluationSuite.evaluate_task1(y_true_tags, predicted_tags)
-    AdvancedEvaluationSuite.evaluate_task2(ground_truth_spoilers, predicted_spoilers)
+    AdvancedEvaluationSuite.evaluate_task2(
+        ground_truth_spoilers, predicted_spoilers, y_true_tags
+    )
 
     # Save standardized submission artifact defensively using contiguous 0-based
     # enumeration rather than pandas row labels.

@@ -2,11 +2,11 @@ from src.postprocessor import detect_enumeration_spoiler, enforce_length_constra
 
 
 def test_enforce_length_constraints_phrase():
-    """Trims long phrase predictions to maximum 5 words."""
+    """Trims long phrase predictions to maximum 6 words (optimized threshold)."""
     long_phrase = "Paris is the capital city of France"
     trimmed = enforce_length_constraints(long_phrase, "phrase")
-    assert len(trimmed.split()) == 5
-    assert trimmed == "Paris is the capital city"
+    assert len(trimmed.split()) == 6
+    assert trimmed == "Paris is the capital city of"
 
 
 def test_enforce_length_constraints_passage():

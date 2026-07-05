@@ -351,7 +351,9 @@ def main() -> None:
 
     logger.info("Computing integrated pipeline metrics...")
     AdvancedEvaluationSuite.evaluate_task1(y_true_tags, pred_tags)
-    AdvancedEvaluationSuite.evaluate_task2(ground_truth_spoilers, pred_spoilers)
+    AdvancedEvaluationSuite.evaluate_task2(
+        ground_truth_spoilers, pred_spoilers, y_true_tags
+    )
 
     # Save standardized submission artifact for evaluations with confidence metrics
     logger.info(f"Saving final pipeline output file to {args.output_path}...")
