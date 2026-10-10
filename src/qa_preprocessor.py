@@ -136,11 +136,18 @@ class QAPreprocessor:
             correctly across sub-processes. Keep `num_proc=1` if exact counts are required.
 
         Args:
-            examples (Dict[str, Any]): Batched training examples from datasets.Dataset.
+            examples: Batched rows from ``datasets.Dataset``. Required keys are
+            ``postText`` and ``targetParagraphs`` (each a string or a list of
+            strings). ``spoiler`` is a list of answer strings per row.
+            ``tags`` and ``uuid`` are optional and used only for fallback logs.
 
         Returns:
-            Dict[str, Any]: Tokenized examples containing 'input_ids', 'attention_mask',
-                'start_positions', and 'end_positions'.
+            Dict with ``input_ids``, ``attention_mask``, ``offset_mapping``
+            (character spans per token; not removed), ``start_positions``, and
+            ``end_positions``. Start and end values are token indices into
+            ``input_ids``. When the answer is missing or falls outside the
+            current window, both indices are the CLS token. Overflow windows
+            are flattened; ``overflow_to_sample_mapping`` is removed.
         """
         # Flatten posts and target paragraphs into single strings
         questions = [join_text_list(q) for q in examples["postText"]]

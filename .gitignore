@@ -37,3 +37,43 @@ final_complete_submission.jsonl
 # Ignored directories
 legacy/
 scripts/
+
+# Hugging Face / transformers caches
+.cache/
+.huggingface/
+huggingface/
+
+# Experiment trackers and training outputs
+wandb/
+runs/
+checkpoints/
+checkpoint-*/
+results_qa_phrase/
+results_qa_passage/
+results_multi_seq2seq/
+lightning_logs/
+mlruns/
+
+# Model weights and embeddings
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+
+# Raw JSONL datasets and generated submissions
+*.jsonl
+final_integrated_submission.jsonl
+
+# Secrets
+.env
+.env.*
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini

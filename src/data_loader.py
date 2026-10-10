@@ -3,6 +3,8 @@ from typing import Optional
 
 import pandas as pd
 
+from src.utils import extract_primary_tag
+
 
 class JSONLLoader:
     """A professional loader for handling JSON Lines (.jsonl) datasets,
@@ -27,7 +29,12 @@ class JSONLLoader:
         """Loads the JSONL file into a Pandas DataFrame.
 
         Returns:
-            pd.DataFrame: Loaded dataset.
+            pd.DataFrame: One row per JSON object. Columns used by the pipeline
+            are ``uuid``, ``postText`` (str or list), ``targetParagraphs``
+            (str or list), ``tags`` (list whose first entry is ``phrase``,
+            ``passage``, or ``multi``), ``spoiler`` (list of strings, required
+            for training and scoring), and ``spoilerPositions`` (used only by
+            the EDA script).
 
         Raises:
             FileNotFoundError: If the file does not exist at the specified path.
@@ -56,7 +63,6 @@ class JSONLLoader:
             self.load_data()
 
         filtered_loader = JSONLLoader(self.file_path)
-        from src.utils import extract_primary_tag
 
         # Filter and optionally reset pandas row indices safely
         filtered_df = self.df[self.df["tags"].apply(extract_primary_tag) == tag].copy()

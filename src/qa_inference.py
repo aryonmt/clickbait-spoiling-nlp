@@ -5,8 +5,8 @@ import torch
 
 
 def predict_best_span(
-    model,
-    tokenizer,
+    model: Any,
+    tokenizer: Any,
     question: str,
     context: str,
     max_length: int,
@@ -35,11 +35,18 @@ def predict_best_span(
             to prevent redundant or overlapping extractions.
 
     Returns:
-        Dict[str, Any]: Best predicted span dictionary containing:
-            - 'text': Extracted sub-string.
-            - 'score': Combined logit probability score.
-            - 'start_char': Starting character offset in raw context.
-            - 'end_char': Ending character offset in raw context.
+        Dict[str, Any]: Best predicted span:
+            - ``text``: Character slice of ``context``. This is not
+              ``tokenizer.decode`` of the span.
+            - ``score``: Sum of ``start_logits[s]`` and ``end_logits[e]``
+              after suppressed token positions are set to ``-10000``.
+            - ``start_char``: Inclusive start offset in ``context``.
+            - ``end_char``: Exclusive end offset in ``context``.
+
+        The tokenizer batch passed to the model contains ``input_ids`` and
+        ``attention_mask``, both padded to ``max_length`` and moved to
+        ``device``. Empty candidate sets return ``text=""`` and
+        ``score=-10000``.
     """
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

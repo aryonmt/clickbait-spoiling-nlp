@@ -36,7 +36,8 @@ class PipelineConfig:
         task2_passage_output_dir (str): Checkpoint directory for saving passage model weights.
         task2_passage_epochs (int): Training epochs dedicated for passage-type spoilers.
         task2_multi_strategy (str): Method used for multi-spoilers ('seq2seq', 'extractive_iterative', etc).
-        task2_multi_method (str): Metric used for similarity checks ('jaccard' or 'tfidf').
+        task2_multi_method (str): Sentence ranker for the retrieval multi path.
+            ``jaccard`` is implemented. Other names fall back to Jaccard.
         task2_multi_top_k (int): Number of highest ranking multi-sentence spoilers to extract.
         task2_multi_seq2seq_dir (str): Target directory containing the Seq2Seq T5 weights.
     """

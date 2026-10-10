@@ -1,8 +1,6 @@
 from typing import List
 
 import nltk
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
 from src.logging_setup import setup_logger
 
@@ -18,9 +16,7 @@ except LookupError:
 
 
 class RetrievalSpoilerGenerator:
-    """Generates multi-type spoilers by dynamically retrieving and ranking sentences
-
-    from the article based on lexical and vector similarity to the clickbait post.
+    """Generates multi spoilers by ranking article sentences with token Jaccard overlap against the post.
     """
 
     @staticmethod
@@ -82,96 +78,29 @@ class RetrievalSpoilerGenerator:
         return [item["text"] for item in top_sentences]
 
     @classmethod
-    def generate_multi_spoiler_tfidf(
-        cls, post_text: str, paragraphs: List[str], top_k: int = 3
-    ) -> List[str]:
-        """Selects top-k sentences across all paragraphs ranked by TF-IDF Cosine Similarity to the clickbait post.
-
-        Args:
-            post_text (str): The clickbait headline string.
-            paragraphs (List[str]): All paragraphs from the source article.
-            top_k (int): Number of highest ranking sentences to extract. Defaults to 3.
-
-        Returns:
-            List[str]: Extracted top-k spoiler sentences.
-        """
-        if not paragraphs:
-            return []
-
-        # Flatten paragraphs into a flat list of sentences
-        all_sentences = []
-        sentence_idx = 0
-        sentence_metadata = []
-
-        for para_idx, para in enumerate(paragraphs):
-            sentences = nltk.sent_tokenize(para)
-            for sent in sentences:
-                clean_sent = sent.strip()
-                if clean_sent:
-                    all_sentences.append(clean_sent)
-                    sentence_metadata.append({"text": clean_sent, "idx": sentence_idx})
-                    sentence_idx += 1
-
-        if not all_sentences:
-            return []
-
-        # Include the clickbait post at the end of the corpus for vocabulary fitting
-        corpus = all_sentences + [post_text]
-
-        try:
-            # Fit and transform the corpus with English stop words
-            vectorizer = TfidfVectorizer(stop_words="english", ngram_range=(1, 1))
-            tfidf_matrix = vectorizer.fit_transform(corpus)
-
-            # The last vector is the clickbait post query
-            post_vector = tfidf_matrix[-1]
-            sentence_vectors = tfidf_matrix[:-1]
-
-            # Compute cosine similarities between sentences and the query post
-            similarities = cosine_similarity(sentence_vectors, post_vector).flatten()
-
-            # Populate scores into metadata
-            for i, score in enumerate(similarities):
-                sentence_metadata[i]["score"] = float(score)
-
-        except Exception as exc:
-            # Safe fallback if TF-IDF vectorizer collapses (e.g. empty vocabulary)
-            logger.warning(
-                "TF-IDF similarity computation failed (%s); falling back to "
-                "zero scores for all sentences in this sample.",
-                exc,
-            )
-            for item in sentence_metadata:
-                item["score"] = 0.0
-
-        # Sort descending by score, ascending by document index
-        sentence_metadata.sort(key=lambda x: (-x["score"], x["idx"]))
-        top_items = sentence_metadata[:top_k]
-
-        # Sort back to chronological document order
-        top_items.sort(key=lambda x: x["idx"])
-
-        return [item["text"] for item in top_items]
-
-    @classmethod
     def generate_multi_spoiler(
         cls,
         post_text: str,
         paragraphs: List[str],
         top_k: int = 3,
-        method: str = "tfidf",
+        method: str = "jaccard",
     ) -> List[str]:
-        """Orchestrator method for multi-type spoiler generation.
+        """Rank article sentences against the post and return the top matches.
 
         Args:
-            post_text (str): The clickbait headline string.
-            paragraphs (List[str]): All paragraphs from the source article.
-            top_k (int): Number of highest ranking sentences to extract. Defaults to 3.
-            method (str): Similarity method ('jaccard' or 'tfidf'). Defaults to 'tfidf'.
+            post_text: Clickbait headline.
+            paragraphs: Article paragraphs.
+            top_k: Number of sentences to return. Defaults to 3.
+            method: Only ``jaccard`` is implemented. Any other value, including
+                the former ``tfidf`` option, is logged and treated as Jaccard
+                so callers do not hit a missing ranker.
 
         Returns:
-            List[str]: Extracted top-k spoiler sentences.
+            Spoiler sentences in their original document order.
         """
-        if method == "jaccard":
-            return cls.generate_multi_spoiler_jaccard(post_text, paragraphs, top_k)
-        return cls.generate_multi_spoiler_tfidf(post_text, paragraphs, top_k)
+        if method != "jaccard":
+            logger.warning(
+                "Retrieval method %r is not implemented; using Jaccard overlap.",
+                method,
+            )
+        return cls.generate_multi_spoiler_jaccard(post_text, paragraphs, top_k)

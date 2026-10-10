@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+title: clickbait-spoiling-IR-final-project
+message: If you use this software, please cite it using these metadata.
+type: software
+authors:
+  - name: aryo
+    email: aramne12@gmail.com
+repository-code: https://github.com/aryonmt/clickbait-spoiling-IR-final-project
+url: https://github.com/aryonmt/clickbait-spoiling-IR-final-project
+abstract: >-
+  Two-stage clickbait spoiling pipeline: RoBERTa classifies phrase, passage,
+  and multi spoilers, then extractive QA or Flan-T5 produces the spoiler.
+license: MIT
+keywords:
+  - clickbait spoiling
+  - question answering
+  - information extraction
+references:
+  - type: conference-paper
+    title: "SemEval-2023 Task 5: Clickbait Spoiling"
+    authors:
+      - family-names: Fröbe
+        given-names: Maik
+      - family-names: Stein
+        given-names: Benno
+      - family-names: Gollub
+        given-names: Tim
+      - family-names: Hagen
+        given-names: Matthias
+      - family-names: Potthast
+        given-names: Martin
+    year: 2023
+    conference:
+      name: "Proceedings of the 17th International Workshop on Semantic Evaluation (SemEval-2023)"
+    doi: 10.18653/v1/2023.semeval-1.312
+    url: https://aclanthology.org/2023.semeval-1.312/

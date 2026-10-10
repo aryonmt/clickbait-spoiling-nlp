@@ -7,7 +7,7 @@ depending on the predicted tags (phrase, passage, multi).
 
 import argparse
 import os
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -104,8 +104,8 @@ class ClickbaitIntegratedPipeline:
 
         # Configure dynamic multi spoilers strategy
         self.multi_strategy: str = config.task2_multi_strategy
-        self.multi_model = None
-        self.multi_tokenizer = None
+        self.multi_model: Optional[Any] = None
+        self.multi_tokenizer: Optional[Any] = None
 
         if self.multi_strategy == "extractive_iterative":
             logger.info(
@@ -123,9 +123,10 @@ class ClickbaitIntegratedPipeline:
                 self.multi_model.eval()
             else:
                 logger.warning(
-                    f"Seq2Seq directory {multi_dir} not found. Falling back to TF-IDF."
+                    "Seq2Seq directory %s not found. Falling back to Jaccard retrieval.",
+                    multi_dir,
                 )
-                self.multi_strategy = "tfidf"
+                self.multi_strategy = "jaccard"
 
     def run_inference(
         self, df: pd.DataFrame
@@ -140,9 +141,12 @@ class ClickbaitIntegratedPipeline:
 
         Returns:
             Tuple[List[str], List[List[str]], List[float]]:
-                - predicted_tags: List of spoiler type predictions.
-                - predicted_spoilers: List of extracted spoiler text segments.
-                - confidence_scores: Softmax confidence of the Task 1 predictions.
+                - predicted_tags: ``phrase``, ``passage``, or ``multi``.
+                - predicted_spoilers: One list of strings per row. Phrase and
+                  passage entries are character slices of the article. Multi
+                  seq2seq entries are ``tokenizer.decode(..., skip_special_tokens=True)``
+                  split on ``|``.
+                - confidence_scores: Softmax probability of the predicted class.
         """
         # Defensive reset: predicted_tags/predicted_spoilers are built as plain
         # 0-indexed lists below, so a caller-supplied df with non-contiguous
@@ -321,7 +325,10 @@ def main() -> None:
     parser.add_argument(
         "--multi_strategy",
         type=str,
-        help="Strategy for multi-type spoilers (seq2seq, extractive_iterative, tfidf, jaccard)",
+        help=(
+            "Multi-spoiler path: seq2seq, extractive_iterative, or jaccard. "
+            "The name tfidf is accepted and uses Jaccard retrieval."
+        ),
     )
     parser.add_argument(
         "--output_path", type=str, default="final_integrated_submission.jsonl"

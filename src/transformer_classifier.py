@@ -1,8 +1,8 @@
+import glob
 import os
+import shutil
 from typing import Any, Dict, List
 
-import glob
-import shutil
 import evaluate
 import numpy as np
 import pandas as pd
@@ -44,7 +44,11 @@ class ClickbaitWeightedTrainer(Trainer):
         ).to(self.args.device)
 
     def compute_loss(
-        self, model, inputs, return_outputs=False, num_items_in_batch=None
+        self,
+        model: Any,
+        inputs: Dict[str, Any],
+        return_outputs: bool = False,
+        num_items_in_batch: Any = None,
     ) -> Any:
         """Calculates cross-entropy loss applying the dynamically aligned class weights.
 
@@ -132,7 +136,16 @@ class TransformerSpoilerClassifier:
 
         dataset = Dataset.from_pandas(processed_df)
 
-        def tokenize_func(examples):
+        def tokenize_func(examples: Dict[str, List[str]]) -> Dict[str, Any]:
+            """Tokenize post/article pairs.
+
+            Args:
+                examples: Batch with ``post`` and ``article`` string lists.
+
+            Returns:
+                Dict with ``input_ids`` and ``attention_mask``. Dynamic padding
+                is left to ``DataCollatorWithPadding``.
+            """
             return self.tokenizer(
                 examples["post"],
                 examples["article"],

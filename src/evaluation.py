@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 import nltk
 import numpy as np
 from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
+from nltk.translate.meteor_score import meteor_score
 from rouge_score import rouge_scorer
 from sklearn.metrics import classification_report, confusion_matrix
 
@@ -14,8 +15,6 @@ try:
 except LookupError:
     nltk.download("wordnet", quiet=True)
     nltk.download("omw-1.4", quiet=True)
-
-from nltk.translate.meteor_score import meteor_score
 
 
 def compute_pair_metrics(

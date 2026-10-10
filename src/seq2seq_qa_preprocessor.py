@@ -41,11 +41,17 @@ class Seq2SeqQAPreprocessor:
         target multi-spoilers using a fixed ' | ' delimiter.
 
         Args:
-            examples (Dict[str, Any]): Batched training examples from datasets.Dataset.
+            examples: Batched rows with ``postText``, ``targetParagraphs``, and
+            ``spoiler`` (a list of strings per row).
 
         Returns:
-            Dict[str, Any]: Preprocessed features containing tokenized 'input_ids',
-                'attention_mask', and padded 'labels'.
+            Dict with ``input_ids`` and ``attention_mask`` for the prompt
+            ``question: {post} context: {article}``, padded and truncated to
+            ``max_source_length``, plus ``labels``. Label ids are the target
+            tokenization of spoilers joined by ``" | "``. Positions equal to
+            the pad token id are replaced with ``-100`` so the seq2seq loss
+            ignores them. Decoding is not done here; inference calls
+            ``tokenizer.decode(..., skip_special_tokens=True)``.
         """
         inputs: List[str] = []
         for q, paras in zip(examples["postText"], examples["targetParagraphs"]):

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import torch
 
@@ -19,8 +19,8 @@ except ImportError:
 
 
 def generate_iterative_multi_spoiler(
-    model,
-    tokenizer,
+    model: Any,
+    tokenizer: Any,
     question: str,
     context: str,
     max_length: int,
@@ -48,8 +48,13 @@ def generate_iterative_multi_spoiler(
         similarity_threshold (float): Jaccard/Fuzzy threshold to discard redundant answers. Defaults to 0.6.
         device (torch.device, optional): Computing target (cuda or cpu).
 
+        Each iteration calls ``predict_best_span``, which builds ``input_ids``
+        and ``attention_mask`` over sliding windows and suppresses tokens from
+        earlier spoilers by writing ``-10000`` into their start and end logits.
+
     Returns:
-        List[str]: Extracted list of unique, non-overlapping multi-spoilers.
+        List[str]: Extracted spoiler strings, in extraction order. Each string
+        is a character slice of ``context``.
     """
     spoilers: List[str] = []
 
